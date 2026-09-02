@@ -42,3 +42,6 @@ yarn-error.log*
 # temporary responsive screenshots
 /tmp-responsive-checks/
 /tmp-responsive-checks-final/
+
+# Vercel
+.vercel/
