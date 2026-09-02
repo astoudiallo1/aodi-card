@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Profil public d'un client AODI Card.
+/// Le slug est unique et doit rester stable : c'est l'URL gravee dans la carte NFC.
+model Profile {
+  id           String   @id @default(cuid())
+  firstName    String
+  lastName     String
+  displayName  String
+  slug         String   @unique
+  jobTitle     String?
+  company      String?
+  bio          String?
+  profilePhoto String?
+  coverPhoto   String?
+  phone        String?
+  whatsapp     String?
+  email        String?
+  instagram    String?
+  facebook     String?
+  linkedin     String?
+  tiktok       String?
+  snapchat     String?
+  website      String?
+  address      String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  cards        Card[]
+  orders       Order[]
+}
+
+enum CardStatus {
+  AVAILABLE
+  ASSIGNED
+  PROGRAMMED
+  READY
+  DELIVERED
+  DISABLED
+}
+
+enum OrderStatus {
+  NEW
+  CONFIRMED
+  PROFILE_CREATED
+  CARD_ASSIGNED
+  PROGRAMMED
+  READY
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  PARTIAL
+  REFUNDED
+}
+
+model Card {
+  id         String     @id @default(cuid())
+  cardNumber String     @unique
+  status     CardStatus @default(AVAILABLE)
+  nfcUrl     String?
+  profileId  String?
+  orderId    String?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  deliveredAt DateTime?
+  verifiedAt DateTime?
+  verifiedBy String?
+  profile    Profile?   @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  order      Order?     @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([profileId])
+  @@index([orderId])
+  @@index([status])
+}
+
+model Order {
+  id            String        @id @default(cuid())
+  orderNumber   String        @unique
+  customerName  String
+  customerPhone String?
+  customerEmail String?
+  companyName   String?
+  quantity      Int           @default(1)
+  unitPrice     Int
+  totalAmount   Int
+  paymentStatus PaymentStatus @default(PENDING)
+  orderStatus   OrderStatus   @default(NEW)
+  profileId     String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  paidAt        DateTime?
+  completedAt   DateTime?
+  notes         String?
+  profile       Profile?      @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  cards         Card[]
+
+  @@index([profileId])
+  @@index([paymentStatus])
+  @@index([orderStatus])
+  @@index([createdAt])
+}
