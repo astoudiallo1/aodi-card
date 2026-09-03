@@ -18,7 +18,7 @@ export default async function CreatedProfilePage({ searchParams }: CreatedProfil
 
   const profile = await prisma.profile.findUnique({
     where: { slug },
-    select: { slug: true, ownerToken: true },
+    select: { slug: true },
   });
 
   if (!profile) {
@@ -27,7 +27,6 @@ export default async function CreatedProfilePage({ searchParams }: CreatedProfil
 
   const baseUrl = getPublicAppUrl();
   const profileUrl = `${baseUrl}/${profile.slug}`;
-  const dashboardUrl = `${baseUrl}/dashboard?slug=${encodeURIComponent(profile.slug)}&token=${encodeURIComponent(profile.ownerToken)}`;
 
   return (
     <div>
@@ -52,19 +51,6 @@ export default async function CreatedProfilePage({ searchParams }: CreatedProfil
           <Link href="/admin/profiles" className="inline-flex items-center justify-center rounded-lg border border-aodi-violet-200 bg-white px-5 py-3 text-sm font-semibold text-aodi-violet-900 transition hover:border-aodi-gold">
             Retour aux profils
           </Link>
-        </div>
-      </section>
-
-      <section className="mt-5 rounded-lg border border-aodi-violet-100 bg-[#FBF8F1]/90 p-6 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-aodi-violet-700/70">
-          Acces dashboard client
-        </p>
-        <p className="mt-3 break-all text-sm font-semibold text-aodi-violet-900">{dashboardUrl}</p>
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-          <Link href={`/dashboard?slug=${encodeURIComponent(profile.slug)}&token=${encodeURIComponent(profile.ownerToken)}`} className="inline-flex items-center justify-center rounded-lg bg-aodi-gold px-5 py-3 text-sm font-semibold text-aodi-violet-950 transition hover:bg-aodi-gold-light">
-            Ouvrir le dashboard
-          </Link>
-          <CopyLinkButton url={dashboardUrl} />
         </div>
       </section>
     </div>
