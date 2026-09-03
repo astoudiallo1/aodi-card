@@ -1,4 +1,4 @@
-﻿import { mkdir, writeFile } from "fs/promises";
+import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 
 const MAX_PHOTO_SIZE = 4 * 1024 * 1024;
@@ -9,7 +9,25 @@ const ALLOWED_IMAGE_TYPES = new Map([
   ["image/gif", "gif"],
 ]);
 
-export async function saveProfilePhoto(file: File): Promise<string | null> {
+function isVercelRuntimeWithoutPersistentUploads() {
+  return Boolean(process.env.VERCEL) && !process.env.AODI_UPLOADS_DIR;
+}
+
+function getUploadDir(folder: string) {
+  const configuredDir = process.env.AODI_UPLOADS_DIR;
+
+  if (configuredDir) {
+    return path.join(configuredDir, folder);
+  }
+
+  return path.join(process.cwd(), "public", "uploads", folder);
+}
+
+function getPublicUploadPath(folder: string, fileName: string) {
+  return `/uploads/${folder}/${fileName}`;
+}
+
+export async function saveUploadedImage(file: File, folder = "profiles"): Promise<string | null> {
   if (!file || file.size === 0) {
     return null;
   }
@@ -24,12 +42,20 @@ export async function saveProfilePhoto(file: File): Promise<string | null> {
     throw new Error("La photo ne doit pas depasser 4 Mo.");
   }
 
-  const uploadDir = path.join(process.cwd(), "public", "uploads", "profiles");
+  if (isVercelRuntimeWithoutPersistentUploads()) {
+    return null;
+  }
+
+  const uploadDir = getUploadDir(folder);
   await mkdir(uploadDir, { recursive: true });
 
   const fileName = `${crypto.randomUUID()}.${extension}`;
   const bytes = await file.arrayBuffer();
   await writeFile(path.join(uploadDir, fileName), Buffer.from(bytes));
 
-  return `/uploads/profiles/${fileName}`;
+  return getPublicUploadPath(folder, fileName);
+}
+
+export async function saveProfilePhoto(file: File): Promise<string | null> {
+  return saveUploadedImage(file, "profiles");
 }
