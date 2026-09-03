@@ -1,13 +1,31 @@
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { CopyLinkButton } from "@/components/admin/CopyLinkButton";
-import { getPublicAppUrl } from "@/lib/public-url";
 import { prisma } from "@/lib/prisma";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 type CreatedProfilePageProps = {
   searchParams: Promise<{ slug?: string }>;
 };
+
+async function getConfirmationBaseUrl() {
+  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL;
+
+  if (configuredUrl && !/localhost|127\.0\.0\.1/i.test(configuredUrl)) {
+    return configuredUrl.replace(/\/$/, "");
+  }
+
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host");
+  const protocol = requestHeaders.get("x-forwarded-proto") || "https";
+
+  if (!host) {
+    return "https://aodi-card.vercel.app";
+  }
+
+  return `${protocol}://${host}`.replace(/\/$/, "");
+}
 
 export default async function CreatedProfilePage({ searchParams }: CreatedProfilePageProps) {
   const { slug } = await searchParams;
@@ -25,7 +43,7 @@ export default async function CreatedProfilePage({ searchParams }: CreatedProfil
     notFound();
   }
 
-  const baseUrl = getPublicAppUrl();
+  const baseUrl = await getConfirmationBaseUrl();
   const profileUrl = `${baseUrl}/${profile.slug}`;
 
   return (
