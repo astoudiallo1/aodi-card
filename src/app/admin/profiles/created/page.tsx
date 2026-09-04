@@ -27,8 +27,14 @@ async function getConfirmationBaseUrl() {
   return `${protocol}://${host}`.replace(/\/$/, "");
 }
 
+function logCreatedProfileStep(step: string, details: Record<string, unknown> = {}) {
+  console.info("[AODI CreatedProfilePage]", step, details);
+}
+
 export default async function CreatedProfilePage({ searchParams }: CreatedProfilePageProps) {
+  logCreatedProfileStep("start");
   const { slug } = await searchParams;
+  logCreatedProfileStep("slug", { slug });
 
   if (!slug) {
     notFound();
@@ -45,6 +51,8 @@ export default async function CreatedProfilePage({ searchParams }: CreatedProfil
 
   const baseUrl = await getConfirmationBaseUrl();
   const profileUrl = `${baseUrl}/${profile.slug}`;
+  logCreatedProfileStep("url", { slug: profile.slug, baseUrl });
+  logCreatedProfileStep("render", { slug: profile.slug });
 
   return (
     <div>
