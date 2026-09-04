@@ -1,3 +1,5 @@
+import { ImageUploadField } from "@/components/admin/ImageUploadField";
+
 type ContentFormProps<T> = {
   action: (formData: FormData) => void | Promise<void>;
   submitLabel: string;
@@ -10,6 +12,7 @@ type ProductValues = {
   price: number;
   oldPrice: number | null;
   currency: string;
+  imageUrl: string | null;
   whatsappNumber: string | null;
   orderUrl: string | null;
   isVisible: boolean;
@@ -23,6 +26,7 @@ type ServiceValues = {
   description: string | null;
   price: number | null;
   currency: string | null;
+  imageUrl: string | null;
   ctaLabel: string | null;
   ctaUrl: string | null;
   isVisible: boolean;
@@ -32,6 +36,7 @@ type ServiceValues = {
 type ProjectValues = {
   title: string;
   description: string | null;
+  imageUrl: string | null;
   websiteUrl: string | null;
   appUrl: string | null;
   githubUrl: string | null;
@@ -43,6 +48,7 @@ type ProjectValues = {
 
 type GalleryValues = {
   title: string | null;
+  imageUrl: string | null;
   description: string | null;
   isVisible: boolean;
   displayOrder: number;
@@ -74,11 +80,14 @@ function TextArea({ label, name, defaultValue = "" }: { label: string; name: str
   );
 }
 
-function ImageField() {
+function ImageField({ currentImageUrl, label = "Image", required = false }: { currentImageUrl?: string | null; label?: string; required?: boolean }) {
   return (
-    <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
-      <Field label="Image" name="image" type="file" />
-      <Field label="URL image" name="imageUrl" type="url" />
+    <div className="grid gap-4 sm:col-span-2">
+      <ImageUploadField currentImageUrl={currentImageUrl} label={label} required={required} />
+      <details className="rounded-lg border border-aodi-violet-100 bg-white px-4 py-3 text-sm text-aodi-violet-900">
+        <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.18em] text-aodi-violet-700/70">URL externe avancee</summary>
+        <input name="imageUrl" type="url" defaultValue={currentImageUrl ?? ""} placeholder="https://..." className="mt-3 w-full rounded-lg border border-aodi-violet-100 bg-white px-4 py-3 text-sm text-aodi-violet-900 outline-none transition focus:border-aodi-gold focus:ring-2 focus:ring-aodi-gold/20" />
+      </details>
     </div>
   );
 }
@@ -109,7 +118,7 @@ export function ProductForm({ action, submitLabel, item }: ContentFormProps<Prod
       <Field label="Nom du produit" name="name" required defaultValue={item?.name} />
       <Field label="Prix" name="price" type="number" required defaultValue={item?.price} />
       <TextArea label="Description" name="description" defaultValue={item?.description} />
-      <ImageField />
+      <ImageField label="Image du produit" currentImageUrl={item?.imageUrl} />
       <Field label="Ancien prix" name="oldPrice" type="number" defaultValue={item?.oldPrice} />
       <Field label="Devise" name="currency" defaultValue={item?.currency ?? "FCFA"} />
       <Field label="Numero WhatsApp" name="whatsappNumber" defaultValue={item?.whatsappNumber} />
@@ -130,7 +139,7 @@ export function ServiceForm({ action, submitLabel, item }: ContentFormProps<Serv
       <Field label="Nom du service" name="name" required defaultValue={item?.name} />
       <Field label="Prix" name="price" type="number" defaultValue={item?.price} />
       <TextArea label="Description" name="description" defaultValue={item?.description} />
-      <ImageField />
+      <ImageField label="Image du service" currentImageUrl={item?.imageUrl} />
       <Field label="Devise" name="currency" defaultValue={item?.currency ?? "FCFA"} />
       <Field label="Texte du bouton" name="ctaLabel" defaultValue={item?.ctaLabel} />
       <Field label="URL du bouton" name="ctaUrl" type="url" defaultValue={item?.ctaUrl} />
@@ -146,7 +155,7 @@ export function ProjectForm({ action, submitLabel, item }: ContentFormProps<Proj
       <Field label="Titre" name="title" required defaultValue={item?.title} />
       <Field label="Technologies" name="technologies" defaultValue={item?.technologies} />
       <TextArea label="Description" name="description" defaultValue={item?.description} />
-      <ImageField />
+      <ImageField label="Image du projet" currentImageUrl={item?.imageUrl} />
       <Field label="Lien du site" name="websiteUrl" type="url" defaultValue={item?.websiteUrl} />
       <Field label="Lien de l'application" name="appUrl" type="url" defaultValue={item?.appUrl} />
       <Field label="Lien GitHub" name="githubUrl" type="url" defaultValue={item?.githubUrl} />
@@ -163,7 +172,7 @@ export function GalleryForm({ action, submitLabel, item }: ContentFormProps<Gall
   return (
     <FormShell action={action} submitLabel={submitLabel}>
       <Field label="Titre" name="title" defaultValue={item?.title} />
-      <ImageField />
+      <ImageField label="Image de la galerie" currentImageUrl={item?.imageUrl} required={!item?.imageUrl} />
       <TextArea label="Description" name="description" defaultValue={item?.description} />
       <Field label="Ordre d'affichage" name="displayOrder" type="number" defaultValue={item?.displayOrder ?? 0} />
       <div className="sm:col-span-2"><Check label="Visible" name="isVisible" defaultChecked={item?.isVisible ?? true} /></div>

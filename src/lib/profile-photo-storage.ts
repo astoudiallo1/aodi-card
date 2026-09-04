@@ -1,6 +1,6 @@
-export { saveUploadedImage } from "@/lib/media-storage";
+export { saveUploadedImage, type MediaFolder } from "@/lib/media-storage";
 
 export async function saveProfilePhoto(file: File): Promise<string | null> {
-  const { saveUploadedImage } = await import("@/lib/media-storage");
-  return saveUploadedImage(file, "profiles");
+  const { uploadMedia } = await import("@/lib/media-storage");
+  return uploadMedia(file, "profiles");
 }

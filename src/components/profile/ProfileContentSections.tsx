@@ -26,6 +26,18 @@ function SectionTitle({ icon, title }: { icon: React.ReactNode; title: string })
   );
 }
 
+function ProductImage({ product }: { product: PublicProduct }) {
+  if (product.imageUrl) {
+    return <img src={product.imageUrl} alt={product.name} className="h-48 w-full object-cover" />;
+  }
+
+  return (
+    <div className="flex h-40 items-center justify-center bg-aodi-violet-950/10 text-aodi-violet-900/40">
+      <FaStore className="h-9 w-9" />
+    </div>
+  );
+}
+
 function ProductSection({ products }: { products: PublicProduct[] }) {
   if (products.length === 0) return null;
   return (
@@ -36,11 +48,12 @@ function ProductSection({ products }: { products: PublicProduct[] }) {
           const href = product.isAvailable ? orderHref(product) : null;
           return (
             <article key={product.id} className="overflow-hidden rounded-[1.35rem] border border-aodi-violet-100 bg-white shadow-[0_12px_26px_rgba(42,15,61,0.10)]">
-              {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="h-48 w-full object-cover" /> : <div className="flex h-32 items-center justify-center bg-aodi-violet-950/10 text-aodi-violet-900/40"><FaStore className="h-9 w-9" /></div>}
+              <ProductImage product={product} />
               <div className="p-5">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="min-w-0 flex-1 break-words text-lg font-extrabold text-aodi-violet-950">{product.name}</h3>
                   {product.isFeatured ? <span className="rounded-full bg-aodi-gold/20 px-3 py-1 text-xs font-bold text-aodi-violet-950">Selection</span> : null}
+                  <span className={product.isAvailable ? "rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700" : "rounded-full bg-aodi-violet-100 px-3 py-1 text-xs font-bold text-aodi-violet-700"}>{product.isAvailable ? "Disponible" : "Indisponible"}</span>
                 </div>
                 {product.description ? <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-aodi-violet-950/75">{product.description}</p> : null}
                 <div className="mt-4 flex flex-wrap items-end gap-3">
