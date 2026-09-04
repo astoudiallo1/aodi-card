@@ -117,6 +117,9 @@ export default async function AdminProfilesPage({ searchParams }: ProfilesPagePr
                   <Link href={`/admin/profiles/${profile.id}/edit`} className="rounded-lg border border-aodi-violet-200 bg-white px-3 py-2 text-xs font-semibold text-aodi-violet-900 hover:border-aodi-gold">
                     Modifier
                   </Link>
+                  <Link href={`/admin/profiles/${profile.id}/products`} className="rounded-lg border border-aodi-gold/60 bg-aodi-gold/10 px-3 py-2 text-xs font-semibold text-aodi-violet-900 hover:bg-aodi-gold/20">
+                    Contenus
+                  </Link>
                   <Link href={`/admin/profiles/${profile.id}/card`} className="rounded-lg border border-aodi-gold/60 bg-aodi-gold/10 px-3 py-2 text-xs font-semibold text-aodi-violet-900 hover:bg-aodi-gold/20">
                     Configurer la carte
                   </Link>
@@ -137,4 +140,6 @@ export default async function AdminProfilesPage({ searchParams }: ProfilesPagePr
     </div>
   );
 }
+
+
 

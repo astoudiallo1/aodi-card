@@ -15,6 +15,7 @@ model Profile {
   lastName     String
   displayName  String
   slug         String   @unique
+  ownerToken   String   @unique @default(cuid())
   jobTitle     String?
   company      String?
   bio          String?
@@ -35,6 +36,116 @@ model Profile {
   updatedAt    DateTime @updatedAt
   cards        Card[]
   orders       Order[]
+  products     Product[]
+  services     Service[]
+  projects     Project[]
+  galleryItems GalleryItem[]
+  customLinks  CustomLink[]
+}
+
+model Product {
+  id             String   @id @default(cuid())
+  profileId      String
+  name           String
+  description    String?
+  price          Int
+  oldPrice       Int?
+  currency       String   @default("FCFA")
+  imageUrl       String?
+  whatsappNumber String?
+  orderUrl       String?
+  isVisible      Boolean  @default(true)
+  isFeatured     Boolean  @default(false)
+  isAvailable    Boolean  @default(true)
+  isActive       Boolean  @default(true)
+  displayOrder   Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  profile        Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@index([isVisible])
+  @@index([isActive])
+  @@index([isFeatured])
+  @@index([displayOrder])
+}
+
+model Service {
+  id           String   @id @default(cuid())
+  profileId    String
+  name         String
+  description  String?
+  price        Int?
+  currency     String?
+  imageUrl     String?
+  ctaLabel     String?
+  ctaUrl       String?
+  isVisible    Boolean  @default(true)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  profile      Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@index([isVisible])
+  @@index([displayOrder])
+}
+
+model Project {
+  id           String   @id @default(cuid())
+  profileId    String
+  title        String
+  description  String?
+  imageUrl     String?
+  websiteUrl   String?
+  appUrl       String?
+  githubUrl    String?
+  technologies String?
+  isVisible    Boolean  @default(true)
+  isFeatured   Boolean  @default(false)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  profile      Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@index([isVisible])
+  @@index([isFeatured])
+  @@index([displayOrder])
+}
+
+model GalleryItem {
+  id           String   @id @default(cuid())
+  profileId    String
+  title        String?
+  imageUrl     String
+  description  String?
+  isVisible    Boolean  @default(true)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  profile      Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@index([isVisible])
+  @@index([displayOrder])
+}
+
+model CustomLink {
+  id           String   @id @default(cuid())
+  profileId    String
+  label        String
+  url          String
+  icon         String?
+  isVisible    Boolean  @default(true)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  profile      Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@index([isVisible])
+  @@index([displayOrder])
 }
 
 enum CardStatus {
@@ -110,3 +221,4 @@ model Order {
   @@index([orderStatus])
   @@index([createdAt])
 }
+

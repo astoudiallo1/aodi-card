@@ -1,4 +1,5 @@
 import { AdminHeader } from "@/components/admin/AdminHeader";
+import { ProfileContentNav } from "@/components/admin/ProfileContentNav";
 import { ProfileForm, type AdminProfileFormData } from "@/components/admin/ProfileForm";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
@@ -44,6 +45,7 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
         title={profile.displayName}
         description={`Slug stable : /${profile.slug}. Il ne sera pas modifie automatiquement.`}
       />
+      <ProfileContentNav profileId={profile.id} active="Informations" />
       <ProfileForm
         action={updateProfileAction.bind(null, profile.id)}
         submitLabel="Enregistrer les modifications"

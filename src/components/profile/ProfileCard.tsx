@@ -1,5 +1,6 @@
 import { AodiOfficialLogo } from "@/components/brand/AodiOfficialLogo";
 import { PrimaryActions } from "@/components/profile/PrimaryActions";
+import { ProfileContentSections } from "@/components/profile/ProfileContentSections";
 import { ProfileUtilityCards } from "@/components/profile/ProfileUtilityCards";
 import { SocialLinks } from "@/components/profile/SocialLinks";
 import { getProfilePublicUrl } from "@/lib/public-url";
@@ -148,6 +149,7 @@ export function ProfileCard({ profile }: { profile: PublicProfile }) {
         </section>
 
         <ProfileUtilityCards displayName={profile.displayName} slug={profile.slug} publicUrl={publicUrl} />
+        <ProfileContentSections products={profile.products} services={profile.services} projects={profile.projects} galleryItems={profile.galleryItems} customLinks={profile.customLinks} />
 
 
         {profile.bio ? (
@@ -170,3 +172,4 @@ export function ProfileCard({ profile }: { profile: PublicProfile }) {
     </article>
   );
 }
+

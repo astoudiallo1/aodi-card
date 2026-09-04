@@ -1,4 +1,5 @@
-﻿import { AdminHeader } from "@/components/admin/AdminHeader";
+import { AdminHeader } from "@/components/admin/AdminHeader";
+import { ProfileContentNav } from "@/components/admin/ProfileContentNav";
 import { QrCodePanel } from "@/components/admin/QrCodePanel";
 import { prisma } from "@/lib/prisma";
 import { getProfilePublicUrl } from "@/lib/public-url";
@@ -26,6 +27,8 @@ export default async function AdminProfilePage({ params }: AdminProfilePageProps
         description={`QR personnel et URL stable : /${profile.slug}`}
         action={{ href: `/admin/profiles/${profile.id}/edit`, label: "Modifier" }}
       />
+
+      <ProfileContentNav profileId={profile.id} active="Apercu" />
 
       <div className="mt-8">
         <QrCodePanel displayName={profile.displayName} slug={profile.slug} publicUrl={publicUrl} photo={profile.profilePhoto} />
