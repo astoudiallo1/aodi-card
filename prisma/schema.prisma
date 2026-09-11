@@ -41,6 +41,108 @@ model Profile {
   projects     Project[]
   galleryItems GalleryItem[]
   customLinks  CustomLink[]
+  sections     ProfileSection[]
+  stats        ProfileStat[]
+  musicTracks  MusicTrack[]
+  events       ProfileEvent[]
+}
+
+
+enum ProfileSectionType {
+  SOCIALS
+  CONTACT
+  SERVICES
+  PRODUCTS
+  PROJECTS
+  GALLERY
+  CUSTOM_LINKS
+  MUSIC
+  EVENTS
+  STATS
+  ABOUT
+  CTA
+}
+
+model ProfileSection {
+  id        String             @id @default(cuid())
+  profileId String
+  type      ProfileSectionType
+  enabled   Boolean            @default(true)
+  sortOrder Int                @default(0)
+  title     String?
+  config    Json?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  profile   Profile            @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, type])
+  @@index([profileId])
+  @@index([enabled])
+  @@index([sortOrder])
+}
+
+model ProfileStat {
+  id        String   @id @default(cuid())
+  profileId String
+  label     String
+  value     String
+  icon      String?
+  sortOrder Int      @default(0)
+  isVisible Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@index([isVisible])
+  @@index([sortOrder])
+}
+
+model MusicTrack {
+  id          String   @id @default(cuid())
+  profileId   String
+  title       String
+  artist      String?
+  coverUrl    String?
+  audioUrl    String?
+  spotifyUrl  String?
+  appleUrl    String?
+  youtubeUrl  String?
+  duration    String?
+  isFeatured  Boolean  @default(false)
+  isVisible   Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  releaseDate DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@index([isVisible])
+  @@index([isFeatured])
+  @@index([sortOrder])
+}
+
+model ProfileEvent {
+  id          String   @id @default(cuid())
+  profileId   String
+  title       String
+  description String?
+  location    String?
+  startDate   DateTime
+  endDate     DateTime?
+  externalUrl String?
+  imageUrl    String?
+  isVisible   Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@index([isVisible])
+  @@index([startDate])
+  @@index([sortOrder])
 }
 
 model Product {
@@ -221,4 +323,5 @@ model Order {
   @@index([orderStatus])
   @@index([createdAt])
 }
+
 

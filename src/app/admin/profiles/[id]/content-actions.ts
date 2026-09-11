@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { requireAdminAccess } from "@/lib/admin-auth";
 import { deleteMedia, uploadMedia, type MediaFolder } from "@/lib/media-storage";
@@ -7,6 +7,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export type ContentKind = "products" | "services" | "projects" | "gallery" | "links";
+type SectionType = "SOCIALS" | "CONTACT" | "SERVICES" | "PRODUCTS" | "PROJECTS" | "GALLERY" | "CUSTOM_LINKS" | "MUSIC" | "EVENTS" | "STATS" | "ABOUT" | "CTA";
+
+const SECTION_TYPES: SectionType[] = ["SOCIALS", "CONTACT", "SERVICES", "PRODUCTS", "PROJECTS", "GALLERY", "CUSTOM_LINKS", "MUSIC", "EVENTS", "STATS", "ABOUT", "CTA"];
 
 type ProfileRef = { id: string; slug: string };
 type ImageIntent = { value?: string | null; shouldDeletePrevious: boolean };
@@ -124,6 +127,8 @@ function revalidateProfile(profile: ProfileRef) {
   revalidatePath(`/admin/profiles/${profile.id}/services`);
   revalidatePath(`/admin/profiles/${profile.id}/projects`);
   revalidatePath(`/admin/profiles/${profile.id}/gallery`);
+  revalidatePath(`/admin/profiles/${profile.id}/links`);
+  revalidatePath(`/admin/profiles/${profile.id}/config`);
   revalidatePath(`/${profile.slug}`);
 }
 
@@ -382,5 +387,38 @@ export async function toggleCustomLinkVisibleAction(profileId: string, customLin
   if (!item || item.profileId !== profile.id) throw new Error("Lien introuvable pour ce profil.");
   await prisma.customLink.update({ where: { id: customLinkId }, data: { isVisible: !item.isVisible } });
   revalidateProfile(profile);
+}
+
+
+function sectionType(value: string): SectionType {
+  if (!SECTION_TYPES.includes(value as SectionType)) {
+    throw new Error("Module de profil non autorise.");
+  }
+  return value as SectionType;
+}
+
+export async function updateProfileSectionsAction(profileId: string, formData: FormData) {
+  const profile = await requireProfile(profileId);
+
+  for (const rawType of SECTION_TYPES) {
+    const type = sectionType(rawType);
+    const enabled = checkbox(formData, `${type}.enabled`);
+    const sortOrder = integer(formData, `${type}.sortOrder`);
+    const title = optionalString(formData, `${type}.title`);
+    const id = crypto.randomUUID();
+
+    await prisma.$executeRaw`
+      INSERT INTO "ProfileSection" ("id", "profileId", "type", "enabled", "sortOrder", "title", "config", "createdAt", "updatedAt")
+      VALUES (${id}, ${profile.id}, CAST(${type} AS "ProfileSectionType"), ${enabled}, ${sortOrder}, ${title}, NULL, NOW(), NOW())
+      ON CONFLICT ("profileId", "type") DO UPDATE SET
+        "enabled" = EXCLUDED."enabled",
+        "sortOrder" = EXCLUDED."sortOrder",
+        "title" = EXCLUDED."title",
+        "updatedAt" = NOW()
+    `;
+  }
+
+  revalidateProfile(profile);
+  redirect(`/admin/profiles/${profile.id}/config`);
 }
 

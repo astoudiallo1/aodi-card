@@ -1,8 +1,9 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 
 const items = [
   { label: "Apercu", suffix: "" },
   { label: "Informations", suffix: "/edit" },
+  { label: "Configuration", suffix: "/config" },
   { label: "Boutique", suffix: "/products" },
   { label: "Services", suffix: "/services" },
   { label: "Projets", suffix: "/projects" },

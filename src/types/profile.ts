@@ -1,4 +1,4 @@
-export type PublicProduct = {
+﻿export type PublicProduct = {
   id: string;
   name: string;
   description: string | null;
@@ -49,6 +49,61 @@ export type PublicCustomLink = {
   icon: string | null;
 };
 
+export type ProfileSectionType =
+  | "SOCIALS"
+  | "CONTACT"
+  | "SERVICES"
+  | "PRODUCTS"
+  | "PROJECTS"
+  | "GALLERY"
+  | "CUSTOM_LINKS"
+  | "MUSIC"
+  | "EVENTS"
+  | "STATS"
+  | "ABOUT"
+  | "CTA";
+
+export type PublicProfileSection = {
+  id: string;
+  type: ProfileSectionType;
+  enabled: boolean;
+  sortOrder: number;
+  title: string | null;
+  config: unknown;
+};
+
+export type PublicProfileStat = {
+  id: string;
+  label: string;
+  value: string;
+  icon: string | null;
+};
+
+export type PublicMusicTrack = {
+  id: string;
+  title: string;
+  artist: string | null;
+  coverUrl: string | null;
+  audioUrl: string | null;
+  spotifyUrl: string | null;
+  appleUrl: string | null;
+  youtubeUrl: string | null;
+  duration: string | null;
+  isFeatured: boolean;
+  releaseDate: Date | null;
+};
+
+export type PublicProfileEvent = {
+  id: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  startDate: Date;
+  endDate: Date | null;
+  externalUrl: string | null;
+  imageUrl: string | null;
+};
+
 export type PublicProfile = {
   firstName: string;
   lastName: string;
@@ -74,6 +129,10 @@ export type PublicProfile = {
   projects: PublicProject[];
   galleryItems: PublicGalleryItem[];
   customLinks: PublicCustomLink[];
+  sections: PublicProfileSection[];
+  stats: PublicProfileStat[];
+  musicTracks: PublicMusicTrack[];
+  events: PublicProfileEvent[];
 };
 
 export type ProfileLookup =

@@ -1,5 +1,18 @@
-import { prisma } from "@/lib/prisma";
-import type { PublicCustomLink, PublicGalleryItem, PublicProduct, PublicProfile, PublicProject, PublicService, ProfileLookup } from "@/types/profile";
+﻿import { prisma } from "@/lib/prisma";
+import type {
+  ProfileLookup,
+  ProfileSectionType,
+  PublicCustomLink,
+  PublicGalleryItem,
+  PublicMusicTrack,
+  PublicProduct,
+  PublicProfile,
+  PublicProfileEvent,
+  PublicProfileSection,
+  PublicProfileStat,
+  PublicProject,
+  PublicService,
+} from "@/types/profile";
 
 type ProfileRow = {
   id: string;
@@ -25,6 +38,32 @@ type ProfileRow = {
   isActive: boolean;
 };
 
+type ProfileModules = {
+  products: PublicProduct[];
+  services: PublicService[];
+  projects: PublicProject[];
+  galleryItems: PublicGalleryItem[];
+  customLinks: PublicCustomLink[];
+  stats: PublicProfileStat[];
+  musicTracks: PublicMusicTrack[];
+  events: PublicProfileEvent[];
+  sections: PublicProfileSection[];
+};
+
+const DEFAULT_SECTION_ORDER: ProfileSectionType[] = [
+  "SOCIALS",
+  "CONTACT",
+  "STATS",
+  "MUSIC",
+  "EVENTS",
+  "SERVICES",
+  "PROJECTS",
+  "PRODUCTS",
+  "GALLERY",
+  "CUSTOM_LINKS",
+  "ABOUT",
+];
+
 async function tableHasColumns(tableName: string, columns: string[]) {
   const rows = await prisma.$queryRaw<{ column_name: string }[]>`
     SELECT column_name
@@ -48,12 +87,13 @@ async function tableExists(tableName: string) {
 }
 
 async function getProducts(profileId: string): Promise<PublicProduct[]> {
-  if (!(await tableHasColumns("Product", ["id", "name", "price", "oldPrice", "currency", "imageUrl", "whatsappNumber", "orderUrl", "isFeatured", "isAvailable", "isVisible", "displayOrder", "createdAt"]))) return [];
+  if (!(await tableHasColumns("Product", ["id", "name", "price", "oldPrice", "currency", "imageUrl", "whatsappNumber", "orderUrl", "isFeatured", "isAvailable", "isVisible", "isActive", "displayOrder", "createdAt"]))) return [];
   return prisma.$queryRaw<PublicProduct[]>`
     SELECT "id", "name", "description", "price", "oldPrice", "currency", "imageUrl", "whatsappNumber", "orderUrl", "isFeatured", "isAvailable"
     FROM "Product"
-    WHERE "profileId" = ${profileId} AND "isVisible" = true
-    ORDER BY "displayOrder" ASC, "createdAt" DESC
+    WHERE "profileId" = ${profileId} AND "isVisible" = true AND "isActive" = true
+    ORDER BY "isFeatured" DESC, "displayOrder" ASC, "createdAt" DESC
+    LIMIT 3
   `;
 }
 
@@ -64,6 +104,7 @@ async function getServices(profileId: string): Promise<PublicService[]> {
     FROM "Service"
     WHERE "profileId" = ${profileId} AND "isVisible" = true
     ORDER BY "displayOrder" ASC, "createdAt" DESC
+    LIMIT 4
   `;
 }
 
@@ -73,7 +114,8 @@ async function getProjects(profileId: string): Promise<PublicProject[]> {
     SELECT "id", "title", "description", "imageUrl", "websiteUrl", "appUrl", "githubUrl", "technologies", "isFeatured"
     FROM "Project"
     WHERE "profileId" = ${profileId} AND "isVisible" = true
-    ORDER BY "displayOrder" ASC, "createdAt" DESC
+    ORDER BY "isFeatured" DESC, "displayOrder" ASC, "createdAt" DESC
+    LIMIT 4
   `;
 }
 
@@ -84,6 +126,7 @@ async function getGalleryItems(profileId: string): Promise<PublicGalleryItem[]> 
     FROM "GalleryItem"
     WHERE "profileId" = ${profileId} AND "isVisible" = true
     ORDER BY "displayOrder" ASC, "createdAt" DESC
+    LIMIT 8
   `;
 }
 
@@ -94,10 +137,106 @@ async function getCustomLinks(profileId: string): Promise<PublicCustomLink[]> {
     FROM "CustomLink"
     WHERE "profileId" = ${profileId} AND "isVisible" = true
     ORDER BY "displayOrder" ASC, "createdAt" DESC
+    LIMIT 8
   `;
 }
 
-function toPublicProfile(profile: ProfileRow, modules: { products: PublicProduct[]; services: PublicService[]; projects: PublicProject[]; galleryItems: PublicGalleryItem[]; customLinks: PublicCustomLink[] }): PublicProfile {
+async function getStats(profileId: string): Promise<PublicProfileStat[]> {
+  if (!(await tableExists("ProfileStat"))) return [];
+  return prisma.$queryRaw<PublicProfileStat[]>`
+    SELECT "id", "label", "value", "icon"
+    FROM "ProfileStat"
+    WHERE "profileId" = ${profileId} AND "isVisible" = true
+    ORDER BY "sortOrder" ASC, "createdAt" ASC
+    LIMIT 4
+  `;
+}
+
+async function getMusicTracks(profileId: string): Promise<PublicMusicTrack[]> {
+  if (!(await tableExists("MusicTrack"))) return [];
+  return prisma.$queryRaw<PublicMusicTrack[]>`
+    SELECT "id", "title", "artist", "coverUrl", "audioUrl", "spotifyUrl", "appleUrl", "youtubeUrl", "duration", "isFeatured", "releaseDate"
+    FROM "MusicTrack"
+    WHERE "profileId" = ${profileId} AND "isVisible" = true
+    ORDER BY "isFeatured" DESC, "sortOrder" ASC, "releaseDate" DESC NULLS LAST, "createdAt" DESC
+    LIMIT 3
+  `;
+}
+
+async function getEvents(profileId: string): Promise<PublicProfileEvent[]> {
+  if (!(await tableExists("ProfileEvent"))) return [];
+  return prisma.$queryRaw<PublicProfileEvent[]>`
+    SELECT "id", "title", "description", "location", "startDate", "endDate", "externalUrl", "imageUrl"
+    FROM "ProfileEvent"
+    WHERE "profileId" = ${profileId} AND "isVisible" = true
+    ORDER BY "startDate" ASC, "sortOrder" ASC
+    LIMIT 3
+  `;
+}
+
+function hasSocials(profile: ProfileRow) {
+  return Boolean(profile.whatsapp || profile.instagram || profile.facebook || profile.linkedin || profile.tiktok || profile.snapchat || profile.website || profile.email);
+}
+
+function hasContact(profile: ProfileRow) {
+  return Boolean(profile.phone || profile.whatsapp || profile.email || profile.address || profile.website);
+}
+
+function sectionHasContent(type: ProfileSectionType, profile: ProfileRow, modules: Omit<ProfileModules, "sections">) {
+  switch (type) {
+    case "SOCIALS":
+      return hasSocials(profile);
+    case "CONTACT":
+      return hasContact(profile);
+    case "SERVICES":
+      return modules.services.length > 0;
+    case "PRODUCTS":
+      return modules.products.length > 0;
+    case "PROJECTS":
+      return modules.projects.length > 0;
+    case "GALLERY":
+      return modules.galleryItems.length > 0;
+    case "CUSTOM_LINKS":
+      return modules.customLinks.length > 0;
+    case "MUSIC":
+      return modules.musicTracks.length > 0;
+    case "EVENTS":
+      return modules.events.length > 0;
+    case "STATS":
+      return modules.stats.length > 0;
+    case "ABOUT":
+      return Boolean(profile.bio);
+    case "CTA":
+      return hasContact(profile);
+    default:
+      return false;
+  }
+}
+
+async function getConfiguredSections(profileId: string): Promise<PublicProfileSection[]> {
+  if (!(await tableExists("ProfileSection"))) return [];
+  return prisma.$queryRaw<PublicProfileSection[]>`
+    SELECT "id", "type"::text AS "type", "enabled", "sortOrder", "title", "config"
+    FROM "ProfileSection"
+    WHERE "profileId" = ${profileId}
+    ORDER BY "sortOrder" ASC, "createdAt" ASC
+  `;
+}
+
+function buildFallbackSections(profile: ProfileRow, modules: Omit<ProfileModules, "sections">): PublicProfileSection[] {
+  return DEFAULT_SECTION_ORDER
+    .map((type, index) => ({ id: `fallback-${type}`, type, enabled: true, sortOrder: (index + 1) * 10, title: null, config: null }))
+    .filter((section) => sectionHasContent(section.type, profile, modules));
+}
+
+function buildSections(profile: ProfileRow, modules: Omit<ProfileModules, "sections">, configuredSections: PublicProfileSection[]) {
+  const source = configuredSections.length > 0 ? configuredSections.filter((section) => section.enabled) : buildFallbackSections(profile, modules);
+  return source
+    .filter((section) => sectionHasContent(section.type, profile, modules))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+function toPublicProfile(profile: ProfileRow, modules: ProfileModules): PublicProfile {
   return {
     firstName: profile.firstName,
     lastName: profile.lastName,
@@ -123,6 +262,10 @@ function toPublicProfile(profile: ProfileRow, modules: { products: PublicProduct
     projects: modules.projects,
     galleryItems: modules.galleryItems,
     customLinks: modules.customLinks,
+    sections: modules.sections,
+    stats: modules.stats,
+    musicTracks: modules.musicTracks,
+    events: modules.events,
   };
 }
 
@@ -159,15 +302,22 @@ export async function lookupProfileBySlug(slug: string): Promise<ProfileLookup> 
   if (!profile) return { status: "missing" };
   if (!profile.isActive) return { status: "inactive" };
 
-  const [products, services, projects, galleryItems, customLinks] = await Promise.all([
+  const [products, services, projects, galleryItems, customLinks, stats, musicTracks, events, configuredSections] = await Promise.all([
     getProducts(profile.id),
     getServices(profile.id),
     getProjects(profile.id),
     getGalleryItems(profile.id),
     getCustomLinks(profile.id),
+    getStats(profile.id),
+    getMusicTracks(profile.id),
+    getEvents(profile.id),
+    getConfiguredSections(profile.id),
   ]);
 
-  return { status: "found", profile: toPublicProfile(profile, { products, services, projects, galleryItems, customLinks }) };
+  const moduleData = { products, services, projects, galleryItems, customLinks, stats, musicTracks, events };
+  const sections = buildSections(profile, moduleData, configuredSections);
+
+  return { status: "found", profile: toPublicProfile(profile, { ...moduleData, sections }) };
 }
 
 export async function getPublicProfileBySlug(slug: string): Promise<PublicProfile | null> {
