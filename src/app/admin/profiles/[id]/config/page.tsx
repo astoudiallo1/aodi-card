@@ -1,8 +1,8 @@
-﻿import { AdminHeader } from "@/components/admin/AdminHeader";
+import { AdminHeader } from "@/components/admin/AdminHeader";
 import { ProfileContentNav } from "@/components/admin/ProfileContentNav";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import { updateProfileSectionsAction } from "../content-actions";
+import { updateProfileExperienceAction, updateProfileSectionsAction } from "../content-actions";
 
 type PageProps = { params: Promise<{ id: string }> };
 type SectionType = "SOCIALS" | "CONTACT" | "SERVICES" | "PRODUCTS" | "PROJECTS" | "GALLERY" | "CUSTOM_LINKS" | "MUSIC" | "EVENTS" | "STATS" | "ABOUT" | "CTA";
@@ -16,12 +16,25 @@ const MODULES: { type: SectionType; label: string; description: string; defaultO
   { type: "EVENTS", label: "Evenements", description: "Dates publiques generiques.", defaultOrder: 50 },
   { type: "SERVICES", label: "Services", description: "Cartes services existantes.", defaultOrder: 60 },
   { type: "PROJECTS", label: "Projets", description: "Realisations et portfolios.", defaultOrder: 70 },
-  { type: "PRODUCTS", label: "Boutique", description: "Preview de 2 a 3 produits.", defaultOrder: 80 },
+  { type: "PRODUCTS", label: "Boutique", description: "Preview de 2 a 4 produits.", defaultOrder: 80 },
   { type: "GALLERY", label: "Galerie", description: "Apercu visuel horizontal.", defaultOrder: 90 },
   { type: "CUSTOM_LINKS", label: "Liens", description: "Liens personnalises.", defaultOrder: 100 },
   { type: "ABOUT", label: "A propos", description: "Bio longue du profil.", defaultOrder: 110 },
-  { type: "CTA", label: "CTA", description: "Emplacement reserve pour un appel a l'action futur.", defaultOrder: 120 },
+  { type: "CTA", label: "CTA final", description: "Bandeau final configurable.", defaultOrder: 120 },
 ];
+
+const PROFILE_TYPES = [
+  ["GENERAL", "General"],
+  ["CORPORATE", "Corporate"],
+  ["ARCHITECTURE", "Architecture"],
+  ["COMMERCE", "Commerce"],
+  ["MUSIC", "Musique"],
+  ["ACTOR_CREATOR", "Artiste / Createur"],
+  ["TECH", "Tech"],
+  ["CRAFT", "Artisan / Metier"],
+];
+
+const POSITIONS = [["center", "Centre"], ["top", "Haut"], ["bottom", "Bas"], ["left", "Gauche"], ["right", "Droite"]];
 
 async function getSections(profileId: string) {
   const exists = await prisma.$queryRaw<{ exists: boolean }[]>`
@@ -39,9 +52,29 @@ async function getSections(profileId: string) {
   `;
 }
 
+function Field({ label, name, defaultValue, placeholder }: { label: string; name: string; defaultValue?: string | null; placeholder?: string }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-aodi-violet-700/60">{label}</span>
+      <input name={name} defaultValue={defaultValue ?? ""} placeholder={placeholder} className="mt-1 w-full rounded-lg border border-aodi-violet-100 bg-white px-3 py-2 text-sm outline-none focus:border-aodi-gold focus:ring-2 focus:ring-aodi-gold/20" />
+    </label>
+  );
+}
+
+function SelectField({ label, name, defaultValue, options }: { label: string; name: string; defaultValue?: string | null; options: string[][] }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-aodi-violet-700/60">{label}</span>
+      <select name={name} defaultValue={defaultValue ?? ""} className="mt-1 w-full rounded-lg border border-aodi-violet-100 bg-white px-3 py-2 text-sm outline-none focus:border-aodi-gold focus:ring-2 focus:ring-aodi-gold/20">
+        {options.map(([value, labelText]) => <option key={value} value={value}>{labelText}</option>)}
+      </select>
+    </label>
+  );
+}
+
 export default async function AdminProfileConfigPage({ params }: PageProps) {
   const { id } = await params;
-  const profile = await prisma.profile.findUnique({ where: { id }, select: { id: true, displayName: true, slug: true } });
+  const profile = await prisma.profile.findUnique({ where: { id }, select: { id: true, displayName: true, slug: true, profileType: true, tagline: true, tags: true, appointmentUrl: true, finalCtaLabel: true, finalCtaUrl: true, heroImagePosition: true, coverImagePosition: true } });
   if (!profile) notFound();
 
   const rows = await getSections(profile.id);
@@ -49,14 +82,32 @@ export default async function AdminProfileConfigPage({ params }: PageProps) {
 
   return (
     <div>
-      <AdminHeader eyebrow="Configuration du profil" title={profile.displayName} description={`Modules et ordre de la page publique /${profile.slug}.`} />
+      <AdminHeader eyebrow="Configuration du profil" title={profile.displayName} description={`Experience, actions, modules et ordre de la page publique /${profile.slug}.`} />
       <ProfileContentNav profileId={profile.id} active="Configuration" />
+
+      <form action={updateProfileExperienceAction.bind(null, profile.id)} className="mt-6 space-y-4">
+        <section className="rounded-lg border border-aodi-violet-100 bg-[#FBF8F1]/90 p-5 shadow-sm">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <SelectField label="Type d experience" name="profileType" defaultValue={profile.profileType} options={PROFILE_TYPES} />
+            <Field label="Slogan court" name="tagline" defaultValue={profile.tagline} placeholder="Une phrase courte pour le hero" />
+            <Field label="Tags publics" name="tags" defaultValue={profile.tags.join(", ")} placeholder="Architecture, Design, Conseil" />
+            <Field label="URL rendez-vous" name="appointmentUrl" defaultValue={profile.appointmentUrl} />
+            <Field label="Label CTA final" name="finalCtaLabel" defaultValue={profile.finalCtaLabel} placeholder="Construisons ensemble" />
+            <Field label="URL CTA final" name="finalCtaUrl" defaultValue={profile.finalCtaUrl} />
+            <SelectField label="Position photo hero" name="heroImagePosition" defaultValue={profile.heroImagePosition} options={POSITIONS} />
+            <SelectField label="Position couverture" name="coverImagePosition" defaultValue={profile.coverImagePosition} options={POSITIONS} />
+          </div>
+          <div className="mt-5 flex justify-end">
+            <button type="submit" className="rounded-lg bg-aodi-violet-900 px-6 py-3 text-sm font-semibold text-white shadow-card transition hover:bg-aodi-violet-800">Enregistrer l experience</button>
+          </div>
+        </section>
+      </form>
 
       <form action={updateProfileSectionsAction.bind(null, profile.id)} className="mt-6 space-y-4">
         <section className="overflow-hidden rounded-lg border border-aodi-violet-100 bg-[#FBF8F1]/90 shadow-sm">
           {MODULES.map((module) => {
             const section = byType.get(module.type);
-            const enabled = section?.enabled ?? ["SOCIALS", "CONTACT", "SERVICES", "PROJECTS", "PRODUCTS", "GALLERY", "CUSTOM_LINKS", "ABOUT"].includes(module.type);
+            const enabled = section?.enabled ?? ["SOCIALS", "CONTACT", "STATS", "SERVICES", "PROJECTS", "GALLERY", "ABOUT"].includes(module.type);
             return (
               <article key={module.type} className="grid gap-4 border-b border-aodi-violet-100 p-5 lg:grid-cols-[180px_1fr_110px_220px] lg:items-center">
                 <label className="flex items-center gap-3 text-sm font-bold text-aodi-violet-900">
@@ -81,7 +132,7 @@ export default async function AdminProfileConfigPage({ params }: PageProps) {
         </section>
 
         <div className="flex justify-end">
-          <button type="submit" className="rounded-lg bg-aodi-violet-900 px-6 py-3 text-sm font-semibold text-white shadow-card transition hover:bg-aodi-violet-800">Enregistrer la configuration</button>
+          <button type="submit" className="rounded-lg bg-aodi-violet-900 px-6 py-3 text-sm font-semibold text-white shadow-card transition hover:bg-aodi-violet-800">Enregistrer les modules</button>
         </div>
       </form>
     </div>

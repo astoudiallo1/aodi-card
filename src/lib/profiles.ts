@@ -1,7 +1,8 @@
-﻿import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import type {
   ProfileLookup,
   ProfileSectionType,
+  ProfileType,
   PublicCustomLink,
   PublicGalleryItem,
   PublicMusicTrack,
@@ -13,6 +14,7 @@ import type {
   PublicProject,
   PublicService,
 } from "@/types/profile";
+import { Prisma } from "@prisma/client";
 
 type ProfileRow = {
   id: string;
@@ -25,6 +27,14 @@ type ProfileRow = {
   bio: string | null;
   profilePhoto: string | null;
   coverPhoto: string | null;
+  profileType: ProfileType | null;
+  tagline: string | null;
+  tags: string[] | null;
+  appointmentUrl: string | null;
+  finalCtaLabel: string | null;
+  finalCtaUrl: string | null;
+  heroImagePosition: string | null;
+  coverImagePosition: string | null;
   phone: string | null;
   whatsapp: string | null;
   email: string | null;
@@ -50,27 +60,44 @@ type ProfileModules = {
   sections: PublicProfileSection[];
 };
 
+const PROFILE_TYPES: ProfileType[] = ["GENERAL", "CORPORATE", "ARCHITECTURE", "COMMERCE", "MUSIC", "ACTOR_CREATOR", "TECH", "CRAFT"];
+
 const DEFAULT_SECTION_ORDER: ProfileSectionType[] = [
   "SOCIALS",
   "CONTACT",
   "STATS",
-  "MUSIC",
-  "EVENTS",
   "SERVICES",
   "PROJECTS",
   "PRODUCTS",
+  "MUSIC",
+  "EVENTS",
   "GALLERY",
   "CUSTOM_LINKS",
   "ABOUT",
 ];
 
-async function tableHasColumns(tableName: string, columns: string[]) {
+const PROFILE_TYPE_SECTION_ORDER: Record<ProfileType, ProfileSectionType[]> = {
+  GENERAL: DEFAULT_SECTION_ORDER,
+  CORPORATE: ["SOCIALS", "CONTACT", "STATS", "SERVICES", "PROJECTS", "GALLERY", "EVENTS", "CUSTOM_LINKS", "ABOUT", "PRODUCTS", "MUSIC"],
+  ARCHITECTURE: ["SOCIALS", "CONTACT", "STATS", "SERVICES", "PROJECTS", "GALLERY", "EVENTS", "CUSTOM_LINKS", "ABOUT", "PRODUCTS", "MUSIC"],
+  COMMERCE: ["SOCIALS", "CONTACT", "STATS", "PRODUCTS", "GALLERY", "SERVICES", "PROJECTS", "CUSTOM_LINKS", "ABOUT", "EVENTS", "MUSIC"],
+  MUSIC: ["SOCIALS", "CONTACT", "STATS", "MUSIC", "EVENTS", "GALLERY", "PRODUCTS", "CUSTOM_LINKS", "ABOUT", "PROJECTS", "SERVICES"],
+  ACTOR_CREATOR: ["SOCIALS", "CONTACT", "STATS", "PROJECTS", "EVENTS", "GALLERY", "CUSTOM_LINKS", "ABOUT", "SERVICES", "PRODUCTS", "MUSIC"],
+  TECH: ["SOCIALS", "CONTACT", "STATS", "SERVICES", "PROJECTS", "CUSTOM_LINKS", "GALLERY", "ABOUT", "PRODUCTS", "EVENTS", "MUSIC"],
+  CRAFT: ["SOCIALS", "CONTACT", "STATS", "SERVICES", "PROJECTS", "GALLERY", "PRODUCTS", "CUSTOM_LINKS", "ABOUT", "EVENTS", "MUSIC"],
+};
+
+async function getTableColumns(tableName: string) {
   const rows = await prisma.$queryRaw<{ column_name: string }[]>`
     SELECT column_name
     FROM information_schema.columns
     WHERE table_schema = 'public' AND table_name = ${tableName}
   `;
-  const availableColumns = new Set(rows.map((row) => row.column_name));
+  return new Set(rows.map((row) => row.column_name));
+}
+
+async function tableHasColumns(tableName: string, columns: string[]) {
+  const availableColumns = await getTableColumns(tableName);
   return columns.every((column) => availableColumns.has(column));
 }
 
@@ -86,6 +113,31 @@ async function tableExists(tableName: string) {
   return Boolean(rows[0]?.exists);
 }
 
+function profileColumn(columns: Set<string>, name: string, fallbackSql: Prisma.Sql) {
+  return columns.has(name) ? Prisma.raw(`"${name}"`) : fallbackSql;
+}
+
+async function getProfileRowBySlug(slug: string): Promise<ProfileRow | null> {
+  const columns = await getTableColumns("Profile");
+  const [profile] = await prisma.$queryRaw<ProfileRow[]>`
+    SELECT
+      "id", "firstName", "lastName", "displayName", "slug", "jobTitle", "company", "bio", "profilePhoto", "coverPhoto",
+      ${profileColumn(columns, "profileType", Prisma.sql`'GENERAL'`)}::text AS "profileType",
+      ${profileColumn(columns, "tagline", Prisma.sql`NULL`)} AS "tagline",
+      ${profileColumn(columns, "tags", Prisma.sql`ARRAY[]::TEXT[]`)} AS "tags",
+      ${profileColumn(columns, "appointmentUrl", Prisma.sql`NULL`)} AS "appointmentUrl",
+      ${profileColumn(columns, "finalCtaLabel", Prisma.sql`NULL`)} AS "finalCtaLabel",
+      ${profileColumn(columns, "finalCtaUrl", Prisma.sql`NULL`)} AS "finalCtaUrl",
+      ${profileColumn(columns, "heroImagePosition", Prisma.sql`'center'`)} AS "heroImagePosition",
+      ${profileColumn(columns, "coverImagePosition", Prisma.sql`'center'`)} AS "coverImagePosition",
+      "phone", "whatsapp", "email", "instagram", "facebook", "linkedin", "tiktok", "snapchat", "website", "address", "isActive"
+    FROM "Profile"
+    WHERE "slug" = ${slug}
+    LIMIT 1
+  `;
+  return profile ?? null;
+}
+
 async function getProducts(profileId: string): Promise<PublicProduct[]> {
   if (!(await tableHasColumns("Product", ["id", "name", "price", "oldPrice", "currency", "imageUrl", "whatsappNumber", "orderUrl", "isFeatured", "isAvailable", "isVisible", "isActive", "displayOrder", "createdAt"]))) return [];
   return prisma.$queryRaw<PublicProduct[]>`
@@ -93,7 +145,7 @@ async function getProducts(profileId: string): Promise<PublicProduct[]> {
     FROM "Product"
     WHERE "profileId" = ${profileId} AND "isVisible" = true AND "isActive" = true
     ORDER BY "isFeatured" DESC, "displayOrder" ASC, "createdAt" DESC
-    LIMIT 3
+    LIMIT 4
   `;
 }
 
@@ -126,7 +178,7 @@ async function getGalleryItems(profileId: string): Promise<PublicGalleryItem[]> 
     FROM "GalleryItem"
     WHERE "profileId" = ${profileId} AND "isVisible" = true
     ORDER BY "displayOrder" ASC, "createdAt" DESC
-    LIMIT 8
+    LIMIT 6
   `;
 }
 
@@ -159,7 +211,7 @@ async function getMusicTracks(profileId: string): Promise<PublicMusicTrack[]> {
     FROM "MusicTrack"
     WHERE "profileId" = ${profileId} AND "isVisible" = true
     ORDER BY "isFeatured" DESC, "sortOrder" ASC, "releaseDate" DESC NULLS LAST, "createdAt" DESC
-    LIMIT 3
+    LIMIT 4
   `;
 }
 
@@ -170,8 +222,12 @@ async function getEvents(profileId: string): Promise<PublicProfileEvent[]> {
     FROM "ProfileEvent"
     WHERE "profileId" = ${profileId} AND "isVisible" = true
     ORDER BY "startDate" ASC, "sortOrder" ASC
-    LIMIT 3
+    LIMIT 4
   `;
+}
+
+function normalizeProfileType(value: string | null): ProfileType {
+  return PROFILE_TYPES.includes(value as ProfileType) ? (value as ProfileType) : "GENERAL";
 }
 
 function hasSocials(profile: ProfileRow) {
@@ -207,7 +263,7 @@ function sectionHasContent(type: ProfileSectionType, profile: ProfileRow, module
     case "ABOUT":
       return Boolean(profile.bio);
     case "CTA":
-      return hasContact(profile);
+      return Boolean(profile.finalCtaUrl || profile.appointmentUrl || profile.whatsapp || profile.email || profile.phone);
     default:
       return false;
   }
@@ -224,7 +280,8 @@ async function getConfiguredSections(profileId: string): Promise<PublicProfileSe
 }
 
 function buildFallbackSections(profile: ProfileRow, modules: Omit<ProfileModules, "sections">): PublicProfileSection[] {
-  return DEFAULT_SECTION_ORDER
+  const order = PROFILE_TYPE_SECTION_ORDER[normalizeProfileType(profile.profileType)];
+  return order
     .map((type, index) => ({ id: `fallback-${type}`, type, enabled: true, sortOrder: (index + 1) * 10, title: null, config: null }))
     .filter((section) => sectionHasContent(section.type, profile, modules));
 }
@@ -247,6 +304,14 @@ function toPublicProfile(profile: ProfileRow, modules: ProfileModules): PublicPr
     bio: profile.bio,
     profilePhoto: profile.profilePhoto,
     coverPhoto: profile.coverPhoto,
+    profileType: normalizeProfileType(profile.profileType),
+    tagline: profile.tagline,
+    tags: profile.tags ?? [],
+    appointmentUrl: profile.appointmentUrl,
+    finalCtaLabel: profile.finalCtaLabel,
+    finalCtaUrl: profile.finalCtaUrl,
+    heroImagePosition: profile.heroImagePosition ?? "center",
+    coverImagePosition: profile.coverImagePosition ?? "center",
     phone: profile.phone,
     whatsapp: profile.whatsapp,
     email: profile.email,
@@ -271,33 +336,7 @@ function toPublicProfile(profile: ProfileRow, modules: ProfileModules): PublicPr
 
 export async function lookupProfileBySlug(slug: string): Promise<ProfileLookup> {
   const normalizedSlug = slug.trim().toLowerCase();
-
-  const profile = await prisma.profile.findUnique({
-    where: { slug: normalizedSlug },
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      displayName: true,
-      slug: true,
-      jobTitle: true,
-      company: true,
-      bio: true,
-      profilePhoto: true,
-      coverPhoto: true,
-      phone: true,
-      whatsapp: true,
-      email: true,
-      instagram: true,
-      facebook: true,
-      linkedin: true,
-      tiktok: true,
-      snapchat: true,
-      website: true,
-      address: true,
-      isActive: true,
-    },
-  });
+  const profile = await getProfileRowBySlug(normalizedSlug);
 
   if (!profile) return { status: "missing" };
   if (!profile.isActive) return { status: "inactive" };

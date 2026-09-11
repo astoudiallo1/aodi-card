@@ -21,6 +21,14 @@ export type AdminProfileFormData = {
   address: string;
   profilePhoto: string | null;
   coverPhoto: string | null;
+  profileType?: string;
+  tagline?: string;
+  tags?: string;
+  appointmentUrl?: string;
+  finalCtaLabel?: string;
+  finalCtaUrl?: string;
+  heroImagePosition?: string;
+  coverImagePosition?: string;
 };
 
 type ProfileFormProps = {
@@ -91,6 +99,36 @@ function TextArea({ label, name, defaultValue = "", rows = 4 }: { label: string;
   );
 }
 
+
+function SelectField({ label, name, defaultValue, options }: { label: string; name: keyof AdminProfileFormData; defaultValue?: string | null; options: { value: string; label: string }[] }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-aodi-violet-700/70">{label}</span>
+      <select name={name} defaultValue={defaultValue ?? ""} className="mt-2 w-full rounded-lg border border-aodi-violet-100 bg-white/85 px-4 py-3 text-sm text-aodi-violet-900 outline-none transition focus:border-aodi-gold focus:ring-2 focus:ring-aodi-gold/20">
+        {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+      </select>
+    </label>
+  );
+}
+
+const profileTypeOptions = [
+  { value: "GENERAL", label: "General" },
+  { value: "CORPORATE", label: "Corporate" },
+  { value: "ARCHITECTURE", label: "Architecture" },
+  { value: "COMMERCE", label: "Commerce" },
+  { value: "MUSIC", label: "Musique" },
+  { value: "ACTOR_CREATOR", label: "Artiste / Createur" },
+  { value: "TECH", label: "Tech" },
+  { value: "CRAFT", label: "Artisan / Metier" },
+];
+
+const imagePositionOptions = [
+  { value: "center", label: "Centre" },
+  { value: "top", label: "Haut" },
+  { value: "bottom", label: "Bas" },
+  { value: "left", label: "Gauche" },
+  { value: "right", label: "Droite" },
+];
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="rounded-lg border border-aodi-violet-100/80 bg-[#FBF8F1]/90 p-5 shadow-sm sm:p-6">
@@ -162,8 +200,18 @@ export function ProfileForm({ action, submitLabel, profile }: ProfileFormProps) 
         <div className="sm:col-span-2"><Field label="Nom affiche" name="displayName" required defaultValue={values.displayName} /></div>
       </Section>
 
+      <Section title="Experience publique">
+        <SelectField label="Type d experience" name="profileType" defaultValue={values.profileType ?? "GENERAL"} options={profileTypeOptions} />
+        <Field label="Slogan court" name="tagline" defaultValue={values.tagline ?? ""} />
+        <div className="sm:col-span-2"><Field label="Tags publics separes par des virgules" name="tags" defaultValue={values.tags ?? ""} /></div>
+        <Field label="URL rendez-vous" name="appointmentUrl" defaultValue={values.appointmentUrl ?? ""} />
+        <Field label="Label CTA final" name="finalCtaLabel" defaultValue={values.finalCtaLabel ?? ""} />
+        <Field label="URL CTA final" name="finalCtaUrl" defaultValue={values.finalCtaUrl ?? ""} />
+        <SelectField label="Position photo hero" name="heroImagePosition" defaultValue={values.heroImagePosition ?? "center"} options={imagePositionOptions} />
+        <SelectField label="Position couverture" name="coverImagePosition" defaultValue={values.coverImagePosition ?? "center"} options={imagePositionOptions} />
+      </Section>
       <Section title="Informations professionnelles">
-        <Field label="Fonction" name="jobTitle" defaultValue={values.jobTitle} />
+        <Field label="Profession libre" name="jobTitle" defaultValue={values.jobTitle} />
         <Field label="Entreprise" name="company" defaultValue={values.company} />
         <div className="sm:col-span-2"><TextArea label={"Pr\u00e9sentation"} name="bio" defaultValue={values.bio} /></div>
       </Section>

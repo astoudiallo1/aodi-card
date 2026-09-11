@@ -25,6 +25,14 @@ type ProfileInput = {
   linkedin: string | null;
   website: string | null;
   address: string | null;
+  profileType: string;
+  tagline: string | null;
+  tags: string[];
+  appointmentUrl: string | null;
+  finalCtaLabel: string | null;
+  finalCtaUrl: string | null;
+  heroImagePosition: string;
+  coverImagePosition: string;
 };
 
 function optionalString(formData: FormData, key: string): string | null {
@@ -38,6 +46,42 @@ function optionalString(formData: FormData, key: string): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+
+const PROFILE_TYPES = new Set(["GENERAL", "CORPORATE", "ARCHITECTURE", "COMMERCE", "MUSIC", "ACTOR_CREATOR", "TECH", "CRAFT"]);
+const IMAGE_POSITIONS = new Set(["center", "top", "bottom", "left", "right"]);
+
+function profileType(formData: FormData) {
+  const value = optionalString(formData, "profileType") ?? "GENERAL";
+  if (!PROFILE_TYPES.has(value)) throw new Error("Type d experience non autorise.");
+  return value;
+}
+
+function imagePosition(formData: FormData, key: string) {
+  const value = optionalString(formData, key) ?? "center";
+  if (!IMAGE_POSITIONS.has(value)) throw new Error("Position d image non autorisee.");
+  return value;
+}
+
+function tags(formData: FormData) {
+  const value = optionalString(formData, "tags");
+  if (!value) return [];
+  return value.split(",").map((tag) => tag.trim()).filter(Boolean).slice(0, 6);
+}
+
+function optionalUrl(formData: FormData, key: string, label: string): string | null {
+  const raw = optionalString(formData, key);
+  if (!raw) return null;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error(`${label} doit etre une URL valide.`);
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(`${label} doit commencer par http:// ou https://.`);
+  }
+  return url.toString();
+}
 function requiredString(formData: FormData, key: string, label: string): string {
   const value = optionalString(formData, key);
 
@@ -66,6 +110,14 @@ function readProfileInput(formData: FormData): ProfileInput {
     linkedin: optionalString(formData, "linkedin"),
     website: optionalString(formData, "website"),
     address: optionalString(formData, "address"),
+    profileType: profileType(formData),
+    tagline: optionalString(formData, "tagline"),
+    tags: tags(formData),
+    appointmentUrl: optionalUrl(formData, "appointmentUrl", "L URL rendez-vous"),
+    finalCtaLabel: optionalString(formData, "finalCtaLabel"),
+    finalCtaUrl: optionalUrl(formData, "finalCtaUrl", "L URL du CTA final"),
+    heroImagePosition: imagePosition(formData, "heroImagePosition"),
+    coverImagePosition: imagePosition(formData, "coverImagePosition"),
   };
 }
 
@@ -118,7 +170,7 @@ async function createProfileRecord({
 }) {
   const availableColumns = await getProfileColumns();
   const now = new Date();
-  const record: Record<string, string | boolean | Date | null> = {
+  const record: Record<string, string | string[] | boolean | Date | null> = {
     id: crypto.randomUUID(),
     firstName: input.firstName,
     lastName: input.lastName,
@@ -139,6 +191,14 @@ async function createProfileRecord({
     snapchat: input.snapchat,
     website: input.website,
     address: input.address,
+    profileType: input.profileType,
+    tagline: input.tagline,
+    tags: input.tags,
+    appointmentUrl: input.appointmentUrl,
+    finalCtaLabel: input.finalCtaLabel,
+    finalCtaUrl: input.finalCtaUrl,
+    heroImagePosition: input.heroImagePosition,
+    coverImagePosition: input.coverImagePosition,
     isActive: true,
     createdAt: now,
     updatedAt: now,
@@ -200,23 +260,24 @@ export async function updateProfileAction(id: string, formData: FormData) {
   const input = readProfileInput(formData);
   const profilePhoto = await readUploadedFile(formData, "profilePhoto");
   const coverPhoto = await readUploadedFile(formData, "coverPhoto");
-
-  const profile = await prisma.profile.update({
-    where: { id },
-    data: {
-      ...input,
-      ...(profilePhoto ? { profilePhoto } : {}),
-      ...(coverPhoto ? { coverPhoto } : {}),
-    },
-    select: { slug: true },
-  });
+  const availableColumns = await getProfileColumns();
+  const data: Record<string, string | string[] | null> = { ...input };
+  if (profilePhoto) data.profilePhoto = profilePhoto;
+  if (coverPhoto) data.coverPhoto = coverPhoto;
+  const entries = Object.entries(data).filter(([column]) => availableColumns.has(column));
+  const setSql = Prisma.join(entries.map(([column, value]) => Prisma.sql`${Prisma.raw(`"${column}"`)} = ${value}`));
+  const [profile] = await prisma.$queryRaw<{ slug: string }[]>`
+    UPDATE "Profile" SET ${setSql}, "updatedAt" = NOW()
+    WHERE "id" = ${id}
+    RETURNING "slug"
+  `;
+  if (!profile) throw new Error("Profil introuvable.");
 
   revalidatePath("/admin");
   revalidatePath("/admin/profiles");
   revalidatePath(`/${profile.slug}`);
   redirect("/admin/profiles");
 }
-
 export async function toggleProfileStatusAction(id: string) {
   await requireAdminAccess();
 

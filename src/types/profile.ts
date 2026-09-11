@@ -1,4 +1,4 @@
-﻿export type PublicProduct = {
+export type PublicProduct = {
   id: string;
   name: string;
   description: string | null;
@@ -48,6 +48,16 @@ export type PublicCustomLink = {
   url: string;
   icon: string | null;
 };
+
+export type ProfileType =
+  | "GENERAL"
+  | "CORPORATE"
+  | "ARCHITECTURE"
+  | "COMMERCE"
+  | "MUSIC"
+  | "ACTOR_CREATOR"
+  | "TECH"
+  | "CRAFT";
 
 export type ProfileSectionType =
   | "SOCIALS"
@@ -114,6 +124,14 @@ export type PublicProfile = {
   bio: string | null;
   profilePhoto: string | null;
   coverPhoto: string | null;
+  profileType: ProfileType;
+  tagline: string | null;
+  tags: string[];
+  appointmentUrl: string | null;
+  finalCtaLabel: string | null;
+  finalCtaUrl: string | null;
+  heroImagePosition: string;
+  coverImagePosition: string;
   phone: string | null;
   whatsapp: string | null;
   email: string | null;

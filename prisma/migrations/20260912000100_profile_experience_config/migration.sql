@@ -1,0 +1,11 @@
+CREATE TYPE "ProfileType" AS ENUM ('GENERAL', 'CORPORATE', 'ARCHITECTURE', 'COMMERCE', 'MUSIC', 'ACTOR_CREATOR', 'TECH', 'CRAFT');
+
+ALTER TABLE "Profile"
+ADD COLUMN "profileType" "ProfileType" NOT NULL DEFAULT 'GENERAL',
+ADD COLUMN "tagline" TEXT,
+ADD COLUMN "tags" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+ADD COLUMN "appointmentUrl" TEXT,
+ADD COLUMN "finalCtaLabel" TEXT,
+ADD COLUMN "finalCtaUrl" TEXT,
+ADD COLUMN "heroImagePosition" TEXT NOT NULL DEFAULT 'center',
+ADD COLUMN "coverImagePosition" TEXT NOT NULL DEFAULT 'center';

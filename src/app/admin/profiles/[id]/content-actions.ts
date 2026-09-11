@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { requireAdminAccess } from "@/lib/admin-auth";
 import { deleteMedia, uploadMedia, type MediaFolder } from "@/lib/media-storage";
@@ -10,6 +10,8 @@ export type ContentKind = "products" | "services" | "projects" | "gallery" | "li
 type SectionType = "SOCIALS" | "CONTACT" | "SERVICES" | "PRODUCTS" | "PROJECTS" | "GALLERY" | "CUSTOM_LINKS" | "MUSIC" | "EVENTS" | "STATS" | "ABOUT" | "CTA";
 
 const SECTION_TYPES: SectionType[] = ["SOCIALS", "CONTACT", "SERVICES", "PRODUCTS", "PROJECTS", "GALLERY", "CUSTOM_LINKS", "MUSIC", "EVENTS", "STATS", "ABOUT", "CTA"];
+const PROFILE_TYPES = new Set(["GENERAL", "CORPORATE", "ARCHITECTURE", "COMMERCE", "MUSIC", "ACTOR_CREATOR", "TECH", "CRAFT"]);
+const IMAGE_POSITIONS = new Set(["center", "top", "bottom", "left", "right"]);
 
 type ProfileRef = { id: string; slug: string };
 type ImageIntent = { value?: string | null; shouldDeletePrevious: boolean };
@@ -70,6 +72,24 @@ function optionalUrl(formData: FormData, key: string, label: string): string | n
   return url.toString();
 }
 
+
+function profileTypeValue(formData: FormData) {
+  const value = optionalString(formData, "profileType") ?? "GENERAL";
+  if (!PROFILE_TYPES.has(value)) throw new Error("Type d experience non autorise.");
+  return value;
+}
+
+function tagsValue(formData: FormData) {
+  const value = optionalString(formData, "tags");
+  if (!value) return [];
+  return value.split(",").map((tag) => tag.trim()).filter(Boolean).slice(0, 6);
+}
+
+function imagePositionValue(formData: FormData, key: string) {
+  const value = optionalString(formData, key) ?? "center";
+  if (!IMAGE_POSITIONS.has(value)) throw new Error("Position d image non autorisee.");
+  return value;
+}
 function cleanWhatsApp(formData: FormData, key: string) {
   const value = optionalString(formData, key);
   if (!value) return null;
@@ -422,3 +442,23 @@ export async function updateProfileSectionsAction(profileId: string, formData: F
   redirect(`/admin/profiles/${profile.id}/config`);
 }
 
+
+export async function updateProfileExperienceAction(profileId: string, formData: FormData) {
+  const profile = await requireProfile(profileId);
+  await prisma.profile.update({
+    where: { id: profile.id },
+    data: {
+      profileType: profileTypeValue(formData) as never,
+      tagline: optionalString(formData, "tagline"),
+      tags: tagsValue(formData),
+      appointmentUrl: optionalUrl(formData, "appointmentUrl", "L'URL rendez-vous"),
+      finalCtaLabel: optionalString(formData, "finalCtaLabel"),
+      finalCtaUrl: optionalUrl(formData, "finalCtaUrl", "L'URL du CTA final"),
+      heroImagePosition: imagePositionValue(formData, "heroImagePosition"),
+      coverImagePosition: imagePositionValue(formData, "coverImagePosition"),
+    },
+  });
+
+  revalidateProfile(profile);
+  redirect(`/admin/profiles/${profile.id}/config`);
+}

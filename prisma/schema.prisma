@@ -7,6 +7,17 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum ProfileType {
+  GENERAL
+  CORPORATE
+  ARCHITECTURE
+  COMMERCE
+  MUSIC
+  ACTOR_CREATOR
+  TECH
+  CRAFT
+}
+
 /// Profil public d'un client AODI Card.
 /// Le slug est unique et doit rester stable : c'est l'URL gravee dans la carte NFC.
 model Profile {
@@ -21,6 +32,14 @@ model Profile {
   bio          String?
   profilePhoto String?
   coverPhoto   String?
+  profileType  ProfileType @default(GENERAL)
+  tagline      String?
+  tags         String[] @default([])
+  appointmentUrl String?
+  finalCtaLabel  String?
+  finalCtaUrl    String?
+  heroImagePosition String @default("center")
+  coverImagePosition String @default("center")
   phone        String?
   whatsapp     String?
   email        String?
