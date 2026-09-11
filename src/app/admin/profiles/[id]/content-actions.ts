@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-export type ContentKind = "products" | "services" | "projects" | "gallery" | "links";
+export type ContentKind = "products" | "services" | "projects" | "gallery" | "links" | "stats" | "music" | "events";
 type SectionType = "SOCIALS" | "CONTACT" | "SERVICES" | "PRODUCTS" | "PROJECTS" | "GALLERY" | "CUSTOM_LINKS" | "MUSIC" | "EVENTS" | "STATS" | "ABOUT" | "CTA";
 
 const SECTION_TYPES: SectionType[] = ["SOCIALS", "CONTACT", "SERVICES", "PRODUCTS", "PROJECTS", "GALLERY", "CUSTOM_LINKS", "MUSIC", "EVENTS", "STATS", "ABOUT", "CTA"];
@@ -90,6 +90,20 @@ function imagePositionValue(formData: FormData, key: string) {
   if (!IMAGE_POSITIONS.has(value)) throw new Error("Position d image non autorisee.");
   return value;
 }
+
+function optionalDate(formData: FormData, key: string, label: string): Date | null {
+  const raw = optionalString(formData, key);
+  if (!raw) return null;
+  const value = new Date(raw);
+  if (Number.isNaN(value.getTime())) throw new Error(`${label} doit etre une date valide.`);
+  return value;
+}
+
+function requiredDate(formData: FormData, key: string, label: string): Date {
+  const value = optionalDate(formData, key, label);
+  if (!value) throw new Error(`${label} est obligatoire.`);
+  return value;
+}
 function cleanWhatsApp(formData: FormData, key: string) {
   const value = optionalString(formData, key);
   if (!value) return null;
@@ -148,6 +162,9 @@ function revalidateProfile(profile: ProfileRef) {
   revalidatePath(`/admin/profiles/${profile.id}/projects`);
   revalidatePath(`/admin/profiles/${profile.id}/gallery`);
   revalidatePath(`/admin/profiles/${profile.id}/links`);
+  revalidatePath(`/admin/profiles/${profile.id}/stats`);
+  revalidatePath(`/admin/profiles/${profile.id}/music`);
+  revalidatePath(`/admin/profiles/${profile.id}/events`);
   revalidatePath(`/admin/profiles/${profile.id}/config`);
   revalidatePath(`/${profile.slug}`);
 }
@@ -461,4 +478,118 @@ export async function updateProfileExperienceAction(profileId: string, formData:
 
   revalidateProfile(profile);
   redirect(`/admin/profiles/${profile.id}/config`);
+}
+async function ensureStat(profileId: string, statId: string) {
+  const item = await prisma.profileStat.findUnique({ where: { id: statId }, select: { id: true, profileId: true } });
+  if (!item || item.profileId !== profileId) throw new Error("Statistique introuvable pour ce profil.");
+}
+
+async function ensureMusicTrack(profileId: string, trackId: string) {
+  const item = await prisma.musicTrack.findUnique({ where: { id: trackId }, select: { id: true, profileId: true, coverUrl: true } });
+  if (!item || item.profileId !== profileId) throw new Error("Musique introuvable pour ce profil.");
+  return item;
+}
+
+async function ensureEvent(profileId: string, eventId: string) {
+  const item = await prisma.profileEvent.findUnique({ where: { id: eventId }, select: { id: true, profileId: true, imageUrl: true } });
+  if (!item || item.profileId !== profileId) throw new Error("Evenement introuvable pour ce profil.");
+  return item;
+}
+
+export async function createStatAction(profileId: string, formData: FormData) {
+  const profile = await requireProfile(profileId);
+  await prisma.profileStat.create({ data: { profileId: profile.id, value: requiredString(formData, "value", "La valeur"), label: requiredString(formData, "label", "Le libelle"), icon: optionalString(formData, "icon"), sortOrder: integer(formData, "sortOrder"), isVisible: checkbox(formData, "isVisible", true) } });
+  revalidateProfile(profile);
+  redirectTo(profile.id, "stats");
+}
+
+export async function updateStatAction(profileId: string, statId: string, formData: FormData) {
+  const profile = await requireProfile(profileId);
+  await ensureStat(profile.id, statId);
+  await prisma.profileStat.update({ where: { id: statId }, data: { value: requiredString(formData, "value", "La valeur"), label: requiredString(formData, "label", "Le libelle"), icon: optionalString(formData, "icon"), sortOrder: integer(formData, "sortOrder"), isVisible: checkbox(formData, "isVisible") } });
+  revalidateProfile(profile);
+  redirectTo(profile.id, "stats");
+}
+
+export async function deleteStatAction(profileId: string, statId: string) {
+  const profile = await requireProfile(profileId);
+  await ensureStat(profile.id, statId);
+  await prisma.profileStat.delete({ where: { id: statId } });
+  revalidateProfile(profile);
+}
+
+export async function toggleStatVisibleAction(profileId: string, statId: string) {
+  const profile = await requireProfile(profileId);
+  const item = await prisma.profileStat.findUnique({ where: { id: statId }, select: { profileId: true, isVisible: true } });
+  if (!item || item.profileId !== profile.id) throw new Error("Statistique introuvable pour ce profil.");
+  await prisma.profileStat.update({ where: { id: statId }, data: { isVisible: !item.isVisible } });
+  revalidateProfile(profile);
+}
+
+export async function createMusicTrackAction(profileId: string, formData: FormData) {
+  const profile = await requireProfile(profileId);
+  const cover = await readImageIntent(formData, "image", "music");
+  await prisma.musicTrack.create({ data: { profileId: profile.id, title: requiredString(formData, "title", "Le titre"), artist: optionalString(formData, "artist"), coverUrl: cover.value ?? null, audioUrl: optionalUrl(formData, "audioUrl", "L'URL audio"), spotifyUrl: optionalUrl(formData, "spotifyUrl", "L'URL Spotify"), appleUrl: optionalUrl(formData, "appleUrl", "L'URL Apple Music"), youtubeUrl: optionalUrl(formData, "youtubeUrl", "L'URL YouTube"), duration: optionalString(formData, "duration"), releaseDate: optionalDate(formData, "releaseDate", "La date de sortie"), isFeatured: checkbox(formData, "isFeatured"), isVisible: checkbox(formData, "isVisible", true), sortOrder: integer(formData, "sortOrder") } });
+  revalidateProfile(profile);
+  redirectTo(profile.id, "music");
+}
+
+export async function updateMusicTrackAction(profileId: string, trackId: string, formData: FormData) {
+  const profile = await requireProfile(profileId);
+  const previous = await ensureMusicTrack(profile.id, trackId);
+  const cover = await readImageIntent(formData, "image", "music");
+  await prisma.musicTrack.update({ where: { id: trackId }, data: { title: requiredString(formData, "title", "Le titre"), artist: optionalString(formData, "artist"), ...(cover.value !== undefined ? { coverUrl: cover.value } : {}), audioUrl: optionalUrl(formData, "audioUrl", "L'URL audio"), spotifyUrl: optionalUrl(formData, "spotifyUrl", "L'URL Spotify"), appleUrl: optionalUrl(formData, "appleUrl", "L'URL Apple Music"), youtubeUrl: optionalUrl(formData, "youtubeUrl", "L'URL YouTube"), duration: optionalString(formData, "duration"), releaseDate: optionalDate(formData, "releaseDate", "La date de sortie"), isFeatured: checkbox(formData, "isFeatured"), isVisible: checkbox(formData, "isVisible"), sortOrder: integer(formData, "sortOrder") } });
+  await deletePreviousImageIfNeeded(previous.coverUrl, cover);
+  revalidateProfile(profile);
+  redirectTo(profile.id, "music");
+}
+
+export async function deleteMusicTrackAction(profileId: string, trackId: string) {
+  const profile = await requireProfile(profileId);
+  const previous = await ensureMusicTrack(profile.id, trackId);
+  await prisma.musicTrack.delete({ where: { id: trackId } });
+  await deleteMedia(previous.coverUrl);
+  revalidateProfile(profile);
+}
+
+export async function toggleMusicTrackVisibleAction(profileId: string, trackId: string) {
+  const profile = await requireProfile(profileId);
+  const item = await prisma.musicTrack.findUnique({ where: { id: trackId }, select: { profileId: true, isVisible: true } });
+  if (!item || item.profileId !== profile.id) throw new Error("Musique introuvable pour ce profil.");
+  await prisma.musicTrack.update({ where: { id: trackId }, data: { isVisible: !item.isVisible } });
+  revalidateProfile(profile);
+}
+
+export async function createEventAction(profileId: string, formData: FormData) {
+  const profile = await requireProfile(profileId);
+  const image = await readImageIntent(formData, "image", "events");
+  await prisma.profileEvent.create({ data: { profileId: profile.id, title: requiredString(formData, "title", "Le titre"), description: optionalString(formData, "description"), location: optionalString(formData, "location"), startDate: requiredDate(formData, "startDate", "La date de debut"), endDate: optionalDate(formData, "endDate", "La date de fin"), externalUrl: optionalUrl(formData, "externalUrl", "L'URL de reservation"), imageUrl: image.value ?? null, isVisible: checkbox(formData, "isVisible", true), sortOrder: integer(formData, "sortOrder") } });
+  revalidateProfile(profile);
+  redirectTo(profile.id, "events");
+}
+
+export async function updateEventAction(profileId: string, eventId: string, formData: FormData) {
+  const profile = await requireProfile(profileId);
+  const previous = await ensureEvent(profile.id, eventId);
+  const image = await readImageIntent(formData, "image", "events");
+  await prisma.profileEvent.update({ where: { id: eventId }, data: { title: requiredString(formData, "title", "Le titre"), description: optionalString(formData, "description"), location: optionalString(formData, "location"), startDate: requiredDate(formData, "startDate", "La date de debut"), endDate: optionalDate(formData, "endDate", "La date de fin"), externalUrl: optionalUrl(formData, "externalUrl", "L'URL de reservation"), ...(image.value !== undefined ? { imageUrl: image.value } : {}), isVisible: checkbox(formData, "isVisible"), sortOrder: integer(formData, "sortOrder") } });
+  await deletePreviousImageIfNeeded(previous.imageUrl, image);
+  revalidateProfile(profile);
+  redirectTo(profile.id, "events");
+}
+
+export async function deleteEventAction(profileId: string, eventId: string) {
+  const profile = await requireProfile(profileId);
+  const previous = await ensureEvent(profile.id, eventId);
+  await prisma.profileEvent.delete({ where: { id: eventId } });
+  await deleteMedia(previous.imageUrl);
+  revalidateProfile(profile);
+}
+
+export async function toggleEventVisibleAction(profileId: string, eventId: string) {
+  const profile = await requireProfile(profileId);
+  const item = await prisma.profileEvent.findUnique({ where: { id: eventId }, select: { profileId: true, isVisible: true } });
+  if (!item || item.profileId !== profile.id) throw new Error("Evenement introuvable pour ce profil.");
+  await prisma.profileEvent.update({ where: { id: eventId }, data: { isVisible: !item.isVisible } });
+  revalidateProfile(profile);
 }

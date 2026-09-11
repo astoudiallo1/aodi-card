@@ -61,6 +61,40 @@ type LinkValues = {
   isVisible: boolean;
   displayOrder: number;
 };
+type StatValues = {
+  label: string;
+  value: string;
+  icon: string | null;
+  sortOrder: number;
+  isVisible: boolean;
+};
+
+type MusicValues = {
+  title: string;
+  artist: string | null;
+  coverUrl: string | null;
+  audioUrl: string | null;
+  spotifyUrl: string | null;
+  appleUrl: string | null;
+  youtubeUrl: string | null;
+  duration: string | null;
+  releaseDate: Date | string | null;
+  isFeatured: boolean;
+  isVisible: boolean;
+  sortOrder: number;
+};
+
+type EventValues = {
+  title: string;
+  description: string | null;
+  location: string | null;
+  startDate: Date | string;
+  endDate: Date | string | null;
+  externalUrl: string | null;
+  imageUrl: string | null;
+  isVisible: boolean;
+  sortOrder: number;
+};
 
 function Field({ label, name, type = "text", required = false, defaultValue = "" }: { label: string; name: string; type?: string; required?: boolean; defaultValue?: string | number | null }) {
   return (
@@ -187,6 +221,58 @@ export function CustomLinkForm({ action, submitLabel, item }: ContentFormProps<L
       <Field label="URL" name="url" type="url" required defaultValue={item?.url} />
       <Field label="Icone" name="icon" defaultValue={item?.icon} />
       <Field label="Ordre d'affichage" name="displayOrder" type="number" defaultValue={item?.displayOrder ?? 0} />
+      <div className="sm:col-span-2"><Check label="Visible" name="isVisible" defaultChecked={item?.isVisible ?? true} /></div>
+    </FormShell>
+  );
+}
+
+export function StatForm({ action, submitLabel, item }: ContentFormProps<StatValues>) {
+  return (
+    <FormShell action={action} submitLabel={submitLabel}>
+      <Field label="Valeur" name="value" required defaultValue={item?.value} />
+      <Field label="Libelle" name="label" required defaultValue={item?.label} />
+      <Field label="Icone" name="icon" defaultValue={item?.icon} />
+      <Field label="Ordre d'affichage" name="sortOrder" type="number" defaultValue={item?.sortOrder ?? 0} />
+      <div className="sm:col-span-2"><Check label="Visible" name="isVisible" defaultChecked={item?.isVisible ?? true} /></div>
+    </FormShell>
+  );
+}
+
+export function MusicTrackForm({ action, submitLabel, item }: ContentFormProps<MusicValues>) {
+  const releaseDate = item?.releaseDate ? new Date(item.releaseDate).toISOString().slice(0, 10) : "";
+  return (
+    <FormShell action={action} submitLabel={submitLabel}>
+      <Field label="Titre" name="title" required defaultValue={item?.title} />
+      <Field label="Artiste" name="artist" defaultValue={item?.artist} />
+      <ImageField label="Cover" currentImageUrl={item?.coverUrl} />
+      <Field label="Audio URL" name="audioUrl" type="url" defaultValue={item?.audioUrl} />
+      <Field label="Spotify URL" name="spotifyUrl" type="url" defaultValue={item?.spotifyUrl} />
+      <Field label="Apple Music URL" name="appleUrl" type="url" defaultValue={item?.appleUrl} />
+      <Field label="YouTube URL" name="youtubeUrl" type="url" defaultValue={item?.youtubeUrl} />
+      <Field label="Duree" name="duration" defaultValue={item?.duration} />
+      <Field label="Date de sortie" name="releaseDate" type="date" defaultValue={releaseDate} />
+      <Field label="Ordre d'affichage" name="sortOrder" type="number" defaultValue={item?.sortOrder ?? 0} />
+      <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
+        <Check label="Visible" name="isVisible" defaultChecked={item?.isVisible ?? true} />
+        <Check label="Mis en avant" name="isFeatured" defaultChecked={item?.isFeatured ?? false} />
+      </div>
+    </FormShell>
+  );
+}
+
+export function EventForm({ action, submitLabel, item }: ContentFormProps<EventValues>) {
+  const startDate = item?.startDate ? new Date(item.startDate).toISOString().slice(0, 16) : "";
+  const endDate = item?.endDate ? new Date(item.endDate).toISOString().slice(0, 16) : "";
+  return (
+    <FormShell action={action} submitLabel={submitLabel}>
+      <Field label="Titre" name="title" required defaultValue={item?.title} />
+      <Field label="Lieu / ville" name="location" defaultValue={item?.location} />
+      <TextArea label="Description" name="description" defaultValue={item?.description} />
+      <ImageField label="Image evenement" currentImageUrl={item?.imageUrl} />
+      <Field label="Date debut" name="startDate" type="datetime-local" required defaultValue={startDate} />
+      <Field label="Date fin" name="endDate" type="datetime-local" defaultValue={endDate} />
+      <Field label="URL reservation" name="externalUrl" type="url" defaultValue={item?.externalUrl} />
+      <Field label="Ordre d'affichage" name="sortOrder" type="number" defaultValue={item?.sortOrder ?? 0} />
       <div className="sm:col-span-2"><Check label="Visible" name="isVisible" defaultChecked={item?.isVisible ?? true} /></div>
     </FormShell>
   );

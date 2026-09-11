@@ -149,17 +149,12 @@ function EventSection({ events, title, profileType }: { events: PublicProfileEve
   return <section id="evenements" className="space-y-4 scroll-mt-24"><SectionTitle title={sectionLabel("EVENTS", profileType, title)} /><div className="grid gap-3 px-4 sm:px-7 md:grid-cols-2">{events.map((event) => <article key={event.id} className="grid grid-cols-[72px_1fr] gap-4 rounded-lg bg-white p-4 shadow-[0_10px_22px_rgba(24,18,10,0.08)]"><div className="rounded-lg bg-aodi-violet-950 px-3 py-3 text-center text-white"><p className="text-xs font-bold uppercase text-aodi-gold">{new Intl.DateTimeFormat("fr-FR", { month: "short" }).format(event.startDate)}</p><p className="text-2xl font-extrabold">{new Intl.DateTimeFormat("fr-FR", { day: "2-digit" }).format(event.startDate)}</p></div><div><h3 className="font-extrabold text-aodi-violet-950">{event.title}</h3>{event.location ? <p className="mt-1 text-sm font-semibold text-aodi-gold-dark">{event.location}</p> : null}{event.description ? <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-aodi-violet-950/75">{event.description}</p> : null}{event.externalUrl ? <a href={event.externalUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex text-sm font-extrabold text-aodi-violet-900">Reserver</a> : null}</div></article>)}</div></section>;
 }
 
-function StatsSection({ stats, title, profileType }: { stats: { id: string; label: string; value: string; icon: string | null }[]; title?: string | null; profileType: ProfileType }) {
-  if (stats.length === 0) return null;
-  return <section id="stats" className="space-y-4 scroll-mt-24"><SectionTitle title={sectionLabel("STATS", profileType, title)} /><div className="grid grid-cols-2 gap-3 px-4 sm:px-7 md:grid-cols-4">{stats.map((stat) => <article key={stat.id} className="rounded-lg bg-white p-4 text-center shadow-[0_10px_22px_rgba(24,18,10,0.08)]"><p className="text-2xl font-black text-aodi-violet-950">{stat.value}</p><p className="mt-1 text-xs font-bold leading-snug text-aodi-violet-700/75">{stat.label}</p></article>)}</div></section>;
-}
-
 function AboutSection({ bio, title }: { bio: string | null; title?: string | null }) {
   if (!bio) return null;
   return <section id="apropos" className="px-4 sm:px-7"><div className="rounded-lg bg-white p-5 shadow-[0_12px_26px_rgba(24,18,10,0.08)]"><h2 className="font-display text-3xl font-bold text-aodi-violet-950">{title || "A propos"}</h2><span className="mt-3 block h-0.5 w-16 bg-aodi-gold" /><p className="mt-5 whitespace-pre-line text-base leading-relaxed text-aodi-violet-950/80">{bio}</p></div></section>;
 }
 
-export function ProfileContentSections({ slug, bio, products, services, projects, galleryItems, customLinks, musicTracks, events, stats, sections, profileType }: { slug: string; bio: string | null; products: PublicProduct[]; services: PublicService[]; projects: PublicProject[]; galleryItems: PublicGalleryItem[]; customLinks: PublicCustomLink[]; musicTracks: PublicMusicTrack[]; events: PublicProfileEvent[]; stats: { id: string; label: string; value: string; icon: string | null }[]; sections: PublicProfileSection[]; profileType: ProfileType }) {
+export function ProfileContentSections({ slug, bio, products, services, projects, galleryItems, customLinks, musicTracks, events, sections, profileType }: { slug: string; bio: string | null; products: PublicProduct[]; services: PublicService[]; projects: PublicProject[]; galleryItems: PublicGalleryItem[]; customLinks: PublicCustomLink[]; musicTracks: PublicMusicTrack[]; events: PublicProfileEvent[]; sections: PublicProfileSection[]; profileType: ProfileType }) {
   const renderers: Record<ProfileSectionType, (section: PublicProfileSection) => React.ReactNode> = {
     SOCIALS: () => null,
     CONTACT: () => null,
@@ -171,7 +166,7 @@ export function ProfileContentSections({ slug, bio, products, services, projects
     CUSTOM_LINKS: (section) => <LinkSection links={customLinks} title={section.title} profileType={profileType} />,
     MUSIC: (section) => <MusicSection tracks={musicTracks} title={section.title} profileType={profileType} />,
     EVENTS: (section) => <EventSection events={events} title={section.title} profileType={profileType} />,
-    STATS: (section) => <StatsSection stats={stats} title={section.title} profileType={profileType} />,
+    STATS: () => null,
     ABOUT: (section) => <AboutSection bio={bio} title={section.title} />,
   };
 

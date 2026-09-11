@@ -10,9 +10,9 @@ export const ALLOWED_IMAGE_TYPES = new Map([
   ["image/webp", "webp"],
 ]);
 
-const ALLOWED_FOLDERS = new Set(["profiles", "products", "services", "projects", "gallery"]);
+const ALLOWED_FOLDERS = new Set(["profiles", "products", "services", "projects", "gallery", "music", "events"]);
 
-export type MediaFolder = "profiles" | "products" | "services" | "projects" | "gallery";
+export type MediaFolder = "profiles" | "products" | "services" | "projects" | "gallery" | "music" | "events";
 
 function assertFolder(folder: string): asserts folder is MediaFolder {
   if (!ALLOWED_FOLDERS.has(folder)) {
