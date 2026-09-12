@@ -36,6 +36,14 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
     address: profile.address ?? "",
     profilePhoto: profile.profilePhoto,
     coverPhoto: profile.coverPhoto,
+    profileType: profile.profileType,
+    tagline: profile.tagline ?? "",
+    tags: profile.tags.join(", "),
+    appointmentUrl: profile.appointmentUrl ?? "",
+    finalCtaLabel: profile.finalCtaLabel ?? "",
+    finalCtaUrl: profile.finalCtaUrl ?? "",
+    heroImagePosition: profile.heroImagePosition,
+    coverImagePosition: profile.coverImagePosition,
   };
 
   return (

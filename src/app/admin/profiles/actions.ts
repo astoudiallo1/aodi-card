@@ -4,7 +4,7 @@ import { requireAdminAccess } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 import { saveProfilePhoto } from "@/lib/profile-photo-storage";
 import { generateUniqueProfileSlug } from "@/lib/slug";
-import { Prisma } from "@prisma/client";
+import { Prisma, ProfileType as PrismaProfileType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -25,7 +25,7 @@ type ProfileInput = {
   linkedin: string | null;
   website: string | null;
   address: string | null;
-  profileType: string;
+  profileType: PrismaProfileType;
   tagline: string | null;
   tags: string[];
   appointmentUrl: string | null;
@@ -47,13 +47,13 @@ function optionalString(formData: FormData, key: string): string | null {
 }
 
 
-const PROFILE_TYPES = new Set(["GENERAL", "CORPORATE", "ARCHITECTURE", "COMMERCE", "MUSIC", "ACTOR_CREATOR", "TECH", "CRAFT"]);
+const PROFILE_TYPES = new Set<PrismaProfileType>(Object.values(PrismaProfileType));
 const IMAGE_POSITIONS = new Set(["center", "top", "bottom", "left", "right"]);
 
-function profileType(formData: FormData) {
-  const value = optionalString(formData, "profileType") ?? "GENERAL";
-  if (!PROFILE_TYPES.has(value)) throw new Error("Type d experience non autorise.");
-  return value;
+function profileType(formData: FormData): PrismaProfileType {
+  const value = optionalString(formData, "profileType") ?? PrismaProfileType.GENERAL;
+  if (!PROFILE_TYPES.has(value as PrismaProfileType)) throw new Error("Type d experience non autorise.");
+  return value as PrismaProfileType;
 }
 
 function imagePosition(formData: FormData, key: string) {
@@ -260,18 +260,15 @@ export async function updateProfileAction(id: string, formData: FormData) {
   const input = readProfileInput(formData);
   const profilePhoto = await readUploadedFile(formData, "profilePhoto");
   const coverPhoto = await readUploadedFile(formData, "coverPhoto");
-  const availableColumns = await getProfileColumns();
-  const data: Record<string, string | string[] | null> = { ...input };
+  const data: Prisma.ProfileUpdateInput = { ...input };
   if (profilePhoto) data.profilePhoto = profilePhoto;
   if (coverPhoto) data.coverPhoto = coverPhoto;
-  const entries = Object.entries(data).filter(([column]) => availableColumns.has(column));
-  const setSql = Prisma.join(entries.map(([column, value]) => Prisma.sql`${Prisma.raw(`"${column}"`)} = ${value}`));
-  const [profile] = await prisma.$queryRaw<{ slug: string }[]>`
-    UPDATE "Profile" SET ${setSql}, "updatedAt" = NOW()
-    WHERE "id" = ${id}
-    RETURNING "slug"
-  `;
-  if (!profile) throw new Error("Profil introuvable.");
+
+  const profile = await prisma.profile.update({
+    where: { id },
+    data,
+    select: { slug: true },
+  });
 
   revalidatePath("/admin");
   revalidatePath("/admin/profiles");
