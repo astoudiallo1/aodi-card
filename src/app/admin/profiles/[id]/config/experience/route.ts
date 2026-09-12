@@ -102,5 +102,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     console.error("[profile-experience] revalidate failed", { profileId: profile.id, error });
   }
 
-  return NextResponse.redirect(new URL(`/admin/profiles/${profile.id}/config`, request.url), { status: 303 });
+  const destination = `/admin/profiles/${profile.id}/config?saved=1`;
+  return new Response(null, { status: 303, headers: { Location: destination } });
 }
