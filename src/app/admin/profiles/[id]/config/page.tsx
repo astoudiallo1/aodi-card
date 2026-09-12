@@ -2,7 +2,7 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { ProfileContentNav } from "@/components/admin/ProfileContentNav";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import { updateProfileExperienceAction, updateProfileSectionsAction } from "../content-actions";
+import { updateProfileSectionsAction } from "../content-actions";
 
 type PageProps = { params: Promise<{ id: string }> };
 type SectionType = "SOCIALS" | "CONTACT" | "SERVICES" | "PRODUCTS" | "PROJECTS" | "GALLERY" | "CUSTOM_LINKS" | "MUSIC" | "EVENTS" | "STATS" | "ABOUT" | "CTA";
@@ -85,7 +85,7 @@ export default async function AdminProfileConfigPage({ params }: PageProps) {
       <AdminHeader eyebrow="Configuration du profil" title={profile.displayName} description={`Experience, actions, modules et ordre de la page publique /${profile.slug}.`} />
       <ProfileContentNav profileId={profile.id} active="Configuration" />
 
-      <form action={updateProfileExperienceAction.bind(null, profile.id)} className="mt-6 space-y-4">
+      <form action={`/admin/profiles/${profile.id}/config/experience`} method="post" className="mt-6 space-y-4">
         <section className="rounded-lg border border-aodi-violet-100 bg-[#FBF8F1]/90 p-5 shadow-sm">
           <div className="grid gap-4 lg:grid-cols-2">
             <SelectField label="Type d experience" name="profileType" defaultValue={profile.profileType} options={PROFILE_TYPES} />

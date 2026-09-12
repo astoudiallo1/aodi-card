@@ -3,6 +3,7 @@
 import { requireAdminAccess } from "@/lib/admin-auth";
 import { deleteMedia, uploadMedia, type MediaFolder } from "@/lib/media-storage";
 import { prisma } from "@/lib/prisma";
+import { ProfileType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -10,7 +11,7 @@ export type ContentKind = "products" | "services" | "projects" | "gallery" | "li
 type SectionType = "SOCIALS" | "CONTACT" | "SERVICES" | "PRODUCTS" | "PROJECTS" | "GALLERY" | "CUSTOM_LINKS" | "MUSIC" | "EVENTS" | "STATS" | "ABOUT" | "CTA";
 
 const SECTION_TYPES: SectionType[] = ["SOCIALS", "CONTACT", "SERVICES", "PRODUCTS", "PROJECTS", "GALLERY", "CUSTOM_LINKS", "MUSIC", "EVENTS", "STATS", "ABOUT", "CTA"];
-const PROFILE_TYPES = new Set(["GENERAL", "CORPORATE", "ARCHITECTURE", "COMMERCE", "MUSIC", "ACTOR_CREATOR", "TECH", "CRAFT"]);
+const PROFILE_TYPES = new Set<ProfileType>(Object.values(ProfileType));
 const IMAGE_POSITIONS = new Set(["center", "top", "bottom", "left", "right"]);
 
 type ProfileRef = { id: string; slug: string };
@@ -73,10 +74,10 @@ function optionalUrl(formData: FormData, key: string, label: string): string | n
 }
 
 
-function profileTypeValue(formData: FormData) {
-  const value = optionalString(formData, "profileType") ?? "GENERAL";
-  if (!PROFILE_TYPES.has(value)) throw new Error("Type d experience non autorise.");
-  return value;
+function profileTypeValue(formData: FormData): ProfileType {
+  const value = optionalString(formData, "profileType") ?? ProfileType.GENERAL;
+  if (!PROFILE_TYPES.has(value as ProfileType)) throw new Error("Type d experience non autorise.");
+  return value as ProfileType;
 }
 
 function tagsValue(formData: FormData) {
@@ -465,7 +466,7 @@ export async function updateProfileExperienceAction(profileId: string, formData:
   await prisma.profile.update({
     where: { id: profile.id },
     data: {
-      profileType: profileTypeValue(formData) as never,
+      profileType: profileTypeValue(formData),
       tagline: optionalString(formData, "tagline"),
       tags: tagsValue(formData),
       appointmentUrl: optionalUrl(formData, "appointmentUrl", "L'URL rendez-vous"),
