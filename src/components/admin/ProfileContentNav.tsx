@@ -8,6 +8,9 @@ const items = [
   { label: "Services", suffix: "/services" },
   { label: "Projets", suffix: "/projects" },
   { label: "Galerie", suffix: "/gallery" },
+  { label: "Musique", suffix: "/music" },
+  { label: "Evenements", suffix: "/events" },
+  { label: "Statistiques", suffix: "/stats" },
   { label: "Liens", suffix: "/links" },
 ];
 
