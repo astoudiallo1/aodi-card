@@ -77,6 +77,8 @@ export default async function AdminProfileConfigPage({ params }: PageProps) {
   const profile = await prisma.profile.findUnique({ where: { id }, select: { id: true, displayName: true, slug: true, profileType: true, tagline: true, tags: true, appointmentUrl: true, finalCtaLabel: true, finalCtaUrl: true, heroImagePosition: true, coverImagePosition: true } });
   if (!profile) notFound();
 
+  const tagList = Array.isArray(profile.tags) ? profile.tags : [];
+
   const rows = await getSections(profile.id);
   const byType = new Map(rows.map((row) => [row.type, row]));
 
@@ -90,7 +92,7 @@ export default async function AdminProfileConfigPage({ params }: PageProps) {
           <div className="grid gap-4 lg:grid-cols-2">
             <SelectField label="Type d experience" name="profileType" defaultValue={profile.profileType} options={PROFILE_TYPES} />
             <Field label="Slogan court" name="tagline" defaultValue={profile.tagline} placeholder="Une phrase courte pour le hero" />
-            <Field label="Tags publics" name="tags" defaultValue={profile.tags.join(", ")} placeholder="Architecture, Design, Conseil" />
+            <Field label="Tags publics" name="tags" defaultValue={tagList.join(", ")} placeholder="Architecture, Design, Conseil" />
             <Field label="URL rendez-vous" name="appointmentUrl" defaultValue={profile.appointmentUrl} />
             <Field label="Label CTA final" name="finalCtaLabel" defaultValue={profile.finalCtaLabel} placeholder="Construisons ensemble" />
             <Field label="URL CTA final" name="finalCtaUrl" defaultValue={profile.finalCtaUrl} />
