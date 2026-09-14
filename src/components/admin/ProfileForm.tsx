@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
+import { formatBytes, IMAGE_HELP_TEXT, prepareImageForUpload, replaceInputFile, validateImageFile } from "@/lib/browser-image";
+
+const MAX_UNOPTIMIZED_BYTES = 3 * 1024 * 1024;
 
 export type AdminProfileFormData = {
   firstName: string;
@@ -142,6 +145,45 @@ export function ProfileForm({ action, submitLabel, profile }: ProfileFormProps) 
   const values = profile ?? emptyProfile;
   const [profilePreview, setProfilePreview] = useState<string | null>(values.profilePhoto);
   const [coverPreview, setCoverPreview] = useState<string | null>(values.coverPhoto);
+  const [imageStatus, setImageStatus] = useState<{ tone: "info" | "error"; text: string } | null>(null);
+
+  // Valide puis optimise l'image dans le navigateur ; l'input recoit la version optimisee envoyee par le formulaire.
+  async function handleImageChange(event: ChangeEvent<HTMLInputElement>, setPreview: (url: string | null) => void, fallback: string | null) {
+    const input = event.target;
+    const file = input.files?.[0];
+    setImageStatus(null);
+    if (!file) {
+      setPreview(fallback);
+      return;
+    }
+
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      input.value = "";
+      setPreview(fallback);
+      setImageStatus({ tone: "error", text: validationError });
+      return;
+    }
+
+    input.value = "";
+    setImageStatus({ tone: "info", text: "Optimisation de l'image en cours..." });
+    try {
+      const prepared = await prepareImageForUpload(file);
+      if (!replaceInputFile(input, prepared.file)) {
+        if (prepared.file.size > MAX_UNOPTIMIZED_BYTES || file.size > MAX_UNOPTIMIZED_BYTES) {
+          setPreview(fallback);
+          setImageStatus({ tone: "error", text: "Ce navigateur ne permet pas l'optimisation automatique : choisis une image de moins de 3 Mo." });
+          return;
+        }
+        replaceInputFile(input, file);
+      }
+      setPreview(URL.createObjectURL(prepared.file));
+      setImageStatus({ tone: "info", text: prepared.optimized ? `${prepared.file.name} : ${formatBytes(prepared.originalBytes)} optimisee en ${formatBytes(prepared.file.size)} (${prepared.width} x ${prepared.height} px)` : `${prepared.file.name} : ${formatBytes(prepared.file.size)}` });
+    } catch (error) {
+      setPreview(fallback);
+      setImageStatus({ tone: "error", text: error instanceof Error ? error.message : "Impossible de traiter cette image." });
+    }
+  }
 
   useEffect(() => {
     return () => {
@@ -166,10 +208,7 @@ export function ProfileForm({ action, submitLabel, profile }: ProfileFormProps) 
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-aodi-gold-light">Photo de profil</p>
             <label className="mt-3 inline-flex cursor-pointer items-center justify-center rounded-lg bg-white px-5 py-3 text-sm font-semibold text-aodi-violet-900 transition hover:bg-aodi-cream">
               Ajouter une photo
-              <input name="profilePhoto" type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" onChange={(event) => {
-                const file = event.target.files?.[0];
-                setProfilePreview(file ? URL.createObjectURL(file) : values.profilePhoto);
-              }} />
+              <input name="profilePhoto" type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => void handleImageChange(event, setProfilePreview, values.profilePhoto)} />
             </label>
           </div>
         </div>
@@ -185,12 +224,10 @@ export function ProfileForm({ action, submitLabel, profile }: ProfileFormProps) 
           </div>
           <label className="mt-3 inline-flex cursor-pointer items-center justify-center rounded-lg bg-white px-5 py-3 text-sm font-semibold text-aodi-violet-900 transition hover:bg-aodi-cream">
             Ajouter une couverture
-            <input name="coverPhoto" type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" onChange={(event) => {
-              const file = event.target.files?.[0];
-              setCoverPreview(file ? URL.createObjectURL(file) : values.coverPhoto);
-            }} />
+            <input name="coverPhoto" type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => void handleImageChange(event, setCoverPreview, values.coverPhoto)} />
           </label>
-          <p className="mt-3 text-sm leading-relaxed text-aodi-cream/70">Les images sont stockees en fichiers, jamais en base64 dans PostgreSQL.</p>
+          <p className="mt-3 text-sm leading-relaxed text-aodi-cream/70">{IMAGE_HELP_TEXT}. Les images sont stockees en fichiers, jamais en base64 dans PostgreSQL.</p>
+          {imageStatus ? <p aria-live="polite" className={imageStatus.tone === "error" ? "mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700" : "mt-2 text-sm text-aodi-gold-light"}>{imageStatus.text}</p> : null}
         </div>
       </section>
 

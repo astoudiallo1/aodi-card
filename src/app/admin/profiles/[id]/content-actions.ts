@@ -15,7 +15,7 @@ const PROFILE_TYPES = new Set<ProfileType>(Object.values(ProfileType));
 const IMAGE_POSITIONS = new Set(["center", "top", "bottom", "left", "right"]);
 
 type ProfileRef = { id: string; slug: string };
-type ImageIntent = { value?: string | null; shouldDeletePrevious: boolean };
+type ImageIntent = { value?: string | null; shouldDeletePrevious: boolean; uploaded?: boolean };
 
 function optionalString(formData: FormData, key: string): string | null {
   const value = formData.get(key);
@@ -119,7 +119,7 @@ function wantsImageRemoval(formData: FormData) {
 async function readImageIntent(formData: FormData, key: string, folder: MediaFolder): Promise<ImageIntent> {
   const file = formData.get(key);
   if (file instanceof File && file.size > 0) {
-    return { value: await uploadMedia(file, folder), shouldDeletePrevious: true };
+    return { value: await uploadMedia(file, folder), shouldDeletePrevious: true, uploaded: true };
   }
 
   if (wantsImageRemoval(formData)) {
@@ -140,6 +140,16 @@ function applyImageUpdate(image: ImageIntent) {
 
 function applyRequiredImageUpdate(image: ImageIntent) {
   return typeof image.value === "string" ? { imageUrl: image.value } : {};
+}
+
+// Si l'ecriture en base echoue (validation, erreur Prisma), l'image qui vient d'etre stockee est supprimee : pas de fichier orphelin.
+async function persistWithImage<T>(image: ImageIntent, write: () => Promise<T>): Promise<T> {
+  try {
+    return await write();
+  } catch (error) {
+    if (image.uploaded && typeof image.value === "string") await deleteMedia(image.value).catch(() => undefined);
+    throw error;
+  }
 }
 
 async function deletePreviousImageIfNeeded(previousUrl: string | null, image: ImageIntent) {
@@ -206,7 +216,7 @@ async function ensureCustomLink(profileId: string, customLinkId: string) {
 export async function createProductAction(profileId: string, formData: FormData) {
   const profile = await requireProfile(profileId);
   const image = await readImageIntent(formData, "image", "products");
-  await prisma.product.create({
+  await persistWithImage(image, () => prisma.product.create({
     data: {
       profileId: profile.id,
       name: requiredString(formData, "name", "Le nom du produit"),
@@ -222,7 +232,7 @@ export async function createProductAction(profileId: string, formData: FormData)
       isAvailable: checkbox(formData, "isAvailable", true),
       displayOrder: integer(formData, "displayOrder"),
     },
-  });
+  }));
   revalidateProfile(profile);
   redirectTo(profile.id, "products");
 }
@@ -231,7 +241,7 @@ export async function updateProductAction(profileId: string, productId: string, 
   const profile = await requireProfile(profileId);
   const previous = await ensureProduct(profile.id, productId);
   const image = await readImageIntent(formData, "image", "products");
-  await prisma.product.update({
+  await persistWithImage(image, () => prisma.product.update({
     where: { id: productId },
     data: {
       name: requiredString(formData, "name", "Le nom du produit"),
@@ -247,7 +257,7 @@ export async function updateProductAction(profileId: string, productId: string, 
       isAvailable: checkbox(formData, "isAvailable"),
       displayOrder: integer(formData, "displayOrder"),
     },
-  });
+  }));
   await deletePreviousImageIfNeeded(previous.imageUrl, image);
   revalidateProfile(profile);
   redirectTo(profile.id, "products");
@@ -288,7 +298,7 @@ export async function toggleProductFeaturedAction(profileId: string, productId: 
 export async function createServiceAction(profileId: string, formData: FormData) {
   const profile = await requireProfile(profileId);
   const image = await readImageIntent(formData, "image", "services");
-  await prisma.service.create({ data: { profileId: profile.id, name: requiredString(formData, "name", "Le nom du service"), description: optionalString(formData, "description"), price: optionalPrice(formData, "price", "Le prix"), currency: optionalString(formData, "currency"), imageUrl: image.value ?? null, ctaLabel: optionalString(formData, "ctaLabel"), ctaUrl: optionalUrl(formData, "ctaUrl", "L'URL du bouton"), isVisible: checkbox(formData, "isVisible", true), displayOrder: integer(formData, "displayOrder") } });
+  await persistWithImage(image, () => prisma.service.create({ data: { profileId: profile.id, name: requiredString(formData, "name", "Le nom du service"), description: optionalString(formData, "description"), price: optionalPrice(formData, "price", "Le prix"), currency: optionalString(formData, "currency"), imageUrl: image.value ?? null, ctaLabel: optionalString(formData, "ctaLabel"), ctaUrl: optionalUrl(formData, "ctaUrl", "L'URL du bouton"), isVisible: checkbox(formData, "isVisible", true), displayOrder: integer(formData, "displayOrder") } }));
   revalidateProfile(profile);
   redirectTo(profile.id, "services");
 }
@@ -297,7 +307,7 @@ export async function updateServiceAction(profileId: string, serviceId: string, 
   const profile = await requireProfile(profileId);
   const previous = await ensureService(profile.id, serviceId);
   const image = await readImageIntent(formData, "image", "services");
-  await prisma.service.update({ where: { id: serviceId }, data: { name: requiredString(formData, "name", "Le nom du service"), description: optionalString(formData, "description"), price: optionalPrice(formData, "price", "Le prix"), currency: optionalString(formData, "currency"), ...applyImageUpdate(image), ctaLabel: optionalString(formData, "ctaLabel"), ctaUrl: optionalUrl(formData, "ctaUrl", "L'URL du bouton"), isVisible: checkbox(formData, "isVisible"), displayOrder: integer(formData, "displayOrder") } });
+  await persistWithImage(image, () => prisma.service.update({ where: { id: serviceId }, data: { name: requiredString(formData, "name", "Le nom du service"), description: optionalString(formData, "description"), price: optionalPrice(formData, "price", "Le prix"), currency: optionalString(formData, "currency"), ...applyImageUpdate(image), ctaLabel: optionalString(formData, "ctaLabel"), ctaUrl: optionalUrl(formData, "ctaUrl", "L'URL du bouton"), isVisible: checkbox(formData, "isVisible"), displayOrder: integer(formData, "displayOrder") } }));
   await deletePreviousImageIfNeeded(previous.imageUrl, image);
   revalidateProfile(profile);
   redirectTo(profile.id, "services");
@@ -322,7 +332,7 @@ export async function toggleServiceVisibleAction(profileId: string, serviceId: s
 export async function createProjectAction(profileId: string, formData: FormData) {
   const profile = await requireProfile(profileId);
   const image = await readImageIntent(formData, "image", "projects");
-  await prisma.project.create({ data: { profileId: profile.id, title: requiredString(formData, "title", "Le titre du projet"), description: optionalString(formData, "description"), imageUrl: image.value ?? null, websiteUrl: optionalUrl(formData, "websiteUrl", "Le lien du site"), appUrl: optionalUrl(formData, "appUrl", "Le lien de l'application"), githubUrl: optionalUrl(formData, "githubUrl", "Le lien GitHub"), technologies: optionalString(formData, "technologies"), isVisible: checkbox(formData, "isVisible", true), isFeatured: checkbox(formData, "isFeatured"), displayOrder: integer(formData, "displayOrder") } });
+  await persistWithImage(image, () => prisma.project.create({ data: { profileId: profile.id, title: requiredString(formData, "title", "Le titre du projet"), description: optionalString(formData, "description"), imageUrl: image.value ?? null, websiteUrl: optionalUrl(formData, "websiteUrl", "Le lien du site"), appUrl: optionalUrl(formData, "appUrl", "Le lien de l'application"), githubUrl: optionalUrl(formData, "githubUrl", "Le lien GitHub"), technologies: optionalString(formData, "technologies"), isVisible: checkbox(formData, "isVisible", true), isFeatured: checkbox(formData, "isFeatured"), displayOrder: integer(formData, "displayOrder") } }));
   revalidateProfile(profile);
   redirectTo(profile.id, "projects");
 }
@@ -331,7 +341,7 @@ export async function updateProjectAction(profileId: string, projectId: string, 
   const profile = await requireProfile(profileId);
   const previous = await ensureProject(profile.id, projectId);
   const image = await readImageIntent(formData, "image", "projects");
-  await prisma.project.update({ where: { id: projectId }, data: { title: requiredString(formData, "title", "Le titre du projet"), description: optionalString(formData, "description"), ...applyImageUpdate(image), websiteUrl: optionalUrl(formData, "websiteUrl", "Le lien du site"), appUrl: optionalUrl(formData, "appUrl", "Le lien de l'application"), githubUrl: optionalUrl(formData, "githubUrl", "Le lien GitHub"), technologies: optionalString(formData, "technologies"), isVisible: checkbox(formData, "isVisible"), isFeatured: checkbox(formData, "isFeatured"), displayOrder: integer(formData, "displayOrder") } });
+  await persistWithImage(image, () => prisma.project.update({ where: { id: projectId }, data: { title: requiredString(formData, "title", "Le titre du projet"), description: optionalString(formData, "description"), ...applyImageUpdate(image), websiteUrl: optionalUrl(formData, "websiteUrl", "Le lien du site"), appUrl: optionalUrl(formData, "appUrl", "Le lien de l'application"), githubUrl: optionalUrl(formData, "githubUrl", "Le lien GitHub"), technologies: optionalString(formData, "technologies"), isVisible: checkbox(formData, "isVisible"), isFeatured: checkbox(formData, "isFeatured"), displayOrder: integer(formData, "displayOrder") } }));
   await deletePreviousImageIfNeeded(previous.imageUrl, image);
   revalidateProfile(profile);
   redirectTo(profile.id, "projects");
@@ -364,8 +374,9 @@ export async function toggleProjectFeaturedAction(profileId: string, projectId: 
 export async function createGalleryItemAction(profileId: string, formData: FormData) {
   const profile = await requireProfile(profileId);
   const image = await readImageIntent(formData, "image", "gallery");
-  if (!image.value) throw new Error("Une image est obligatoire pour la galerie.");
-  await prisma.galleryItem.create({ data: { profileId: profile.id, title: optionalString(formData, "title"), imageUrl: image.value, description: optionalString(formData, "description"), isVisible: checkbox(formData, "isVisible", true), displayOrder: integer(formData, "displayOrder") } });
+  const imageUrl = image.value;
+  if (!imageUrl) throw new Error("Une image est obligatoire pour la galerie.");
+  await persistWithImage(image, () => prisma.galleryItem.create({ data: { profileId: profile.id, title: optionalString(formData, "title"), imageUrl, description: optionalString(formData, "description"), isVisible: checkbox(formData, "isVisible", true), displayOrder: integer(formData, "displayOrder") } }));
   revalidateProfile(profile);
   redirectTo(profile.id, "gallery");
 }
@@ -375,7 +386,7 @@ export async function updateGalleryItemAction(profileId: string, galleryItemId: 
   const previous = await ensureGalleryItem(profile.id, galleryItemId);
   const image = await readImageIntent(formData, "image", "gallery");
   if (image.value === null) throw new Error("Une image est obligatoire pour la galerie.");
-  await prisma.galleryItem.update({ where: { id: galleryItemId }, data: { title: optionalString(formData, "title"), ...applyRequiredImageUpdate(image), description: optionalString(formData, "description"), isVisible: checkbox(formData, "isVisible"), displayOrder: integer(formData, "displayOrder") } });
+  await persistWithImage(image, () => prisma.galleryItem.update({ where: { id: galleryItemId }, data: { title: optionalString(formData, "title"), ...applyRequiredImageUpdate(image), description: optionalString(formData, "description"), isVisible: checkbox(formData, "isVisible"), displayOrder: integer(formData, "displayOrder") } }));
   await deletePreviousImageIfNeeded(previous.imageUrl, image);
   revalidateProfile(profile);
   redirectTo(profile.id, "gallery");
@@ -530,7 +541,7 @@ export async function toggleStatVisibleAction(profileId: string, statId: string)
 export async function createMusicTrackAction(profileId: string, formData: FormData) {
   const profile = await requireProfile(profileId);
   const cover = await readImageIntent(formData, "image", "music");
-  await prisma.musicTrack.create({ data: { profileId: profile.id, title: requiredString(formData, "title", "Le titre"), artist: optionalString(formData, "artist"), coverUrl: cover.value ?? null, audioUrl: optionalUrl(formData, "audioUrl", "L'URL audio"), spotifyUrl: optionalUrl(formData, "spotifyUrl", "L'URL Spotify"), appleUrl: optionalUrl(formData, "appleUrl", "L'URL Apple Music"), youtubeUrl: optionalUrl(formData, "youtubeUrl", "L'URL YouTube"), duration: optionalString(formData, "duration"), releaseDate: optionalDate(formData, "releaseDate", "La date de sortie"), isFeatured: checkbox(formData, "isFeatured"), isVisible: checkbox(formData, "isVisible", true), sortOrder: integer(formData, "sortOrder") } });
+  await persistWithImage(cover, () => prisma.musicTrack.create({ data: { profileId: profile.id, title: requiredString(formData, "title", "Le titre"), artist: optionalString(formData, "artist"), coverUrl: cover.value ?? null, audioUrl: optionalUrl(formData, "audioUrl", "L'URL audio"), spotifyUrl: optionalUrl(formData, "spotifyUrl", "L'URL Spotify"), appleUrl: optionalUrl(formData, "appleUrl", "L'URL Apple Music"), youtubeUrl: optionalUrl(formData, "youtubeUrl", "L'URL YouTube"), duration: optionalString(formData, "duration"), releaseDate: optionalDate(formData, "releaseDate", "La date de sortie"), isFeatured: checkbox(formData, "isFeatured"), isVisible: checkbox(formData, "isVisible", true), sortOrder: integer(formData, "sortOrder") } }));
   revalidateProfile(profile);
   redirectTo(profile.id, "music");
 }
@@ -539,7 +550,7 @@ export async function updateMusicTrackAction(profileId: string, trackId: string,
   const profile = await requireProfile(profileId);
   const previous = await ensureMusicTrack(profile.id, trackId);
   const cover = await readImageIntent(formData, "image", "music");
-  await prisma.musicTrack.update({ where: { id: trackId }, data: { title: requiredString(formData, "title", "Le titre"), artist: optionalString(formData, "artist"), ...(cover.value !== undefined ? { coverUrl: cover.value } : {}), audioUrl: optionalUrl(formData, "audioUrl", "L'URL audio"), spotifyUrl: optionalUrl(formData, "spotifyUrl", "L'URL Spotify"), appleUrl: optionalUrl(formData, "appleUrl", "L'URL Apple Music"), youtubeUrl: optionalUrl(formData, "youtubeUrl", "L'URL YouTube"), duration: optionalString(formData, "duration"), releaseDate: optionalDate(formData, "releaseDate", "La date de sortie"), isFeatured: checkbox(formData, "isFeatured"), isVisible: checkbox(formData, "isVisible"), sortOrder: integer(formData, "sortOrder") } });
+  await persistWithImage(cover, () => prisma.musicTrack.update({ where: { id: trackId }, data: { title: requiredString(formData, "title", "Le titre"), artist: optionalString(formData, "artist"), ...(cover.value !== undefined ? { coverUrl: cover.value } : {}), audioUrl: optionalUrl(formData, "audioUrl", "L'URL audio"), spotifyUrl: optionalUrl(formData, "spotifyUrl", "L'URL Spotify"), appleUrl: optionalUrl(formData, "appleUrl", "L'URL Apple Music"), youtubeUrl: optionalUrl(formData, "youtubeUrl", "L'URL YouTube"), duration: optionalString(formData, "duration"), releaseDate: optionalDate(formData, "releaseDate", "La date de sortie"), isFeatured: checkbox(formData, "isFeatured"), isVisible: checkbox(formData, "isVisible"), sortOrder: integer(formData, "sortOrder") } }));
   await deletePreviousImageIfNeeded(previous.coverUrl, cover);
   revalidateProfile(profile);
   redirectTo(profile.id, "music");
@@ -564,7 +575,7 @@ export async function toggleMusicTrackVisibleAction(profileId: string, trackId: 
 export async function createEventAction(profileId: string, formData: FormData) {
   const profile = await requireProfile(profileId);
   const image = await readImageIntent(formData, "image", "events");
-  await prisma.profileEvent.create({ data: { profileId: profile.id, title: requiredString(formData, "title", "Le titre"), description: optionalString(formData, "description"), location: optionalString(formData, "location"), startDate: requiredDate(formData, "startDate", "La date de debut"), endDate: optionalDate(formData, "endDate", "La date de fin"), externalUrl: optionalUrl(formData, "externalUrl", "L'URL de reservation"), imageUrl: image.value ?? null, isVisible: checkbox(formData, "isVisible", true), sortOrder: integer(formData, "sortOrder") } });
+  await persistWithImage(image, () => prisma.profileEvent.create({ data: { profileId: profile.id, title: requiredString(formData, "title", "Le titre"), description: optionalString(formData, "description"), location: optionalString(formData, "location"), startDate: requiredDate(formData, "startDate", "La date de debut"), endDate: optionalDate(formData, "endDate", "La date de fin"), externalUrl: optionalUrl(formData, "externalUrl", "L'URL de reservation"), imageUrl: image.value ?? null, isVisible: checkbox(formData, "isVisible", true), sortOrder: integer(formData, "sortOrder") } }));
   revalidateProfile(profile);
   redirectTo(profile.id, "events");
 }
@@ -573,7 +584,7 @@ export async function updateEventAction(profileId: string, eventId: string, form
   const profile = await requireProfile(profileId);
   const previous = await ensureEvent(profile.id, eventId);
   const image = await readImageIntent(formData, "image", "events");
-  await prisma.profileEvent.update({ where: { id: eventId }, data: { title: requiredString(formData, "title", "Le titre"), description: optionalString(formData, "description"), location: optionalString(formData, "location"), startDate: requiredDate(formData, "startDate", "La date de debut"), endDate: optionalDate(formData, "endDate", "La date de fin"), externalUrl: optionalUrl(formData, "externalUrl", "L'URL de reservation"), ...(image.value !== undefined ? { imageUrl: image.value } : {}), isVisible: checkbox(formData, "isVisible"), sortOrder: integer(formData, "sortOrder") } });
+  await persistWithImage(image, () => prisma.profileEvent.update({ where: { id: eventId }, data: { title: requiredString(formData, "title", "Le titre"), description: optionalString(formData, "description"), location: optionalString(formData, "location"), startDate: requiredDate(formData, "startDate", "La date de debut"), endDate: optionalDate(formData, "endDate", "La date de fin"), externalUrl: optionalUrl(formData, "externalUrl", "L'URL de reservation"), ...(image.value !== undefined ? { imageUrl: image.value } : {}), isVisible: checkbox(formData, "isVisible"), sortOrder: integer(formData, "sortOrder") } }));
   await deletePreviousImageIfNeeded(previous.imageUrl, image);
   revalidateProfile(profile);
   redirectTo(profile.id, "events");
