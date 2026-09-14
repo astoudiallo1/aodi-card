@@ -143,21 +143,21 @@ function formatVideoDate(value: string) {
   return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "short", year: "numeric" }).format(date);
 }
 
-function YouTubeVideoCard({ video }: { video: PublicYouTubeVideo }) {
+function YouTubeVideoCard({ video, compact = false }: { video: PublicYouTubeVideo; compact?: boolean }) {
   const date = formatVideoDate(video.publishedAt);
   return (
-    <article className="w-[74vw] max-w-[320px] shrink-0 snap-start overflow-hidden rounded-lg border border-black/5 bg-white shadow-[0_14px_30px_rgba(24,18,10,0.09)] sm:w-[46%] md:w-auto md:max-w-none">
+    <article className={compact ? "w-[29vw] min-w-[104px] max-w-[124px] shrink-0 snap-start overflow-hidden rounded-lg border border-black/5 bg-white shadow-[0_10px_22px_rgba(24,18,10,0.08)] md:w-auto md:max-w-none" : "w-[74vw] max-w-[320px] shrink-0 snap-start overflow-hidden rounded-lg border border-black/5 bg-white shadow-[0_14px_30px_rgba(24,18,10,0.09)] sm:w-[46%] md:w-auto md:max-w-none"}>
       <a href={video.url} target="_blank" rel="noopener noreferrer" className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-aodi-gold">
         <div className="relative aspect-video overflow-hidden bg-aodi-violet-950">
           <img src={video.thumbnail} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
           <span aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
-          <span aria-hidden className="absolute inset-0 flex items-center justify-center"><span className="flex h-12 w-12 items-center justify-center rounded-full bg-aodi-gold text-aodi-violet-950 shadow-[0_10px_24px_rgba(0,0,0,0.32)] transition group-hover:scale-110"><FaPlay className="ml-0.5 h-4 w-4" /></span></span>
+          <span aria-hidden className="absolute inset-0 flex items-center justify-center"><span className={compact ? "flex h-8 w-8 items-center justify-center rounded-full bg-aodi-gold text-aodi-violet-950 shadow-[0_8px_18px_rgba(0,0,0,0.28)] transition group-hover:scale-110 md:h-12 md:w-12" : "flex h-12 w-12 items-center justify-center rounded-full bg-aodi-gold text-aodi-violet-950 shadow-[0_10px_24px_rgba(0,0,0,0.32)] transition group-hover:scale-110"}><FaPlay className={compact ? "ml-0.5 h-3 w-3 md:h-4 md:w-4" : "ml-0.5 h-4 w-4"} /></span></span>
         </div>
-        <div className="p-4">
-          <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-extrabold leading-snug text-aodi-violet-950">{video.title}</h3>
-          <div className="mt-3 flex items-center justify-between gap-3">
-            {date ? <time dateTime={video.publishedAt} className="text-xs font-semibold text-aodi-violet-700/65">{date}</time> : <span />}
-            <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-aodi-gold-dark"><FaYoutube className="h-3.5 w-3.5" /> Regarder</span>
+        <div className={compact ? "p-2 md:p-4" : "p-4"}>
+          <h3 className={compact ? "line-clamp-2 min-h-[2rem] text-[0.68rem] font-extrabold leading-tight text-aodi-violet-950 md:min-h-[2.5rem] md:text-sm md:leading-snug" : "line-clamp-2 min-h-[2.5rem] text-sm font-extrabold leading-snug text-aodi-violet-950"}>{video.title}</h3>
+          <div className={compact ? "mt-2 flex items-center justify-between gap-2 md:mt-3 md:gap-3" : "mt-3 flex items-center justify-between gap-3"}>
+            {date ? <time dateTime={video.publishedAt} className={compact ? "hidden text-xs font-semibold text-aodi-violet-700/65 min-[430px]:inline md:inline" : "text-xs font-semibold text-aodi-violet-700/65"}>{date}</time> : <span />}
+            <span className={compact ? "inline-flex items-center gap-1 text-[0.65rem] font-extrabold text-aodi-gold-dark md:gap-1.5 md:text-xs" : "inline-flex items-center gap-1.5 text-xs font-extrabold text-aodi-gold-dark"}><FaYoutube className="h-3.5 w-3.5" /> {compact ? "Voir" : "Regarder"}</span>
           </div>
         </div>
       </a>
@@ -231,10 +231,10 @@ function MusicSection({ tracks, youtubeVideos, youtubeChannel, title, profileTyp
 
   if (youtubeVideos.length > 0) {
     return (
-      <section id="musique" className="space-y-5 scroll-mt-24">
+      <section id="musique" className={profileType === "MUSIC" ? "space-y-4 scroll-mt-24" : "space-y-5 scroll-mt-24"}>
         <SectionTitle title={heading} />
-        <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-4 px-4 pb-3 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:scroll-px-7 sm:px-7 md:grid md:grid-cols-3 md:overflow-visible md:pb-0">
-          {youtubeVideos.slice(0, 6).map((video) => <YouTubeVideoCard key={video.videoId} video={video} />)}
+        <div className={profileType === "MUSIC" ? "flex snap-x snap-mandatory gap-2.5 overflow-x-auto scroll-px-3 px-3 pb-2 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:scroll-px-7 sm:px-7 md:grid md:grid-cols-3 md:gap-4 md:overflow-visible md:pb-0" : "flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-4 px-4 pb-3 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:scroll-px-7 sm:px-7 md:grid md:grid-cols-3 md:overflow-visible md:pb-0"}>
+          {youtubeVideos.slice(0, 6).map((video) => <YouTubeVideoCard key={video.videoId} video={video} compact={profileType === "MUSIC"} />)}
         </div>
         {youtubeChannel ? <YouTubeChannelLink channel={youtubeChannel} /> : null}
         {tracks.length > 0 ? <div className="space-y-3 pt-2"><p className="px-4 text-xs font-bold uppercase tracking-[0.18em] text-aodi-violet-700/60 sm:px-7">Ecouter aussi</p><ManualTrackList tracks={tracks} /></div> : null}

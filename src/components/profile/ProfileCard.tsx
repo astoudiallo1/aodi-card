@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { AodiOfficialLogo } from "@/components/brand/AodiOfficialLogo";
 import { ProfileContentSections } from "@/components/profile/ProfileContentSections";
+import { ProfileMobileMenu, type ProfileMobileMenuItem } from "@/components/profile/ProfileMobileMenu";
 import { ProfileUtilityCards } from "@/components/profile/ProfileUtilityCards";
 import { SocialLinks } from "@/components/profile/SocialLinks";
 import { getProfilePublicUrl } from "@/lib/public-url";
@@ -53,6 +54,45 @@ const sectionNav: Partial<Record<ProfileSectionType, { href: string; icon: React
   GALLERY: { href: "#galerie", icon: <FaImages className="h-5 w-5" />, label: { default: "Galerie", GENERAL: "Galerie", CORPORATE: "Galerie", ARCHITECTURE: "Galerie", COMMERCE: "Galerie", MUSIC: "Galerie", ACTOR_CREATOR: "Galerie", TECH: "Galerie", CRAFT: "Galerie" } },
 };
 
+function sectionHasContent(profile: PublicProfile, type: ProfileSectionType) {
+  if (!profile.sections.some((section) => section.type === type && section.enabled)) return false;
+  if (type === "MUSIC") return profile.youtubeVideos.length > 0 || profile.musicTracks.length > 0;
+  if (type === "EVENTS") return profile.events.length > 0;
+  if (type === "GALLERY") return profile.galleryItems.length > 0;
+  if (type === "SERVICES") return profile.services.length > 0;
+  if (type === "PRODUCTS") return profile.products.length > 0;
+  if (type === "PROJECTS") return profile.projects.length > 0;
+  if (type === "CUSTOM_LINKS") return profile.customLinks.length > 0;
+  if (type === "ABOUT") return Boolean(profile.bio);
+  if (type === "STATS") return profile.stats.length > 0;
+  return false;
+}
+
+function mobileMenuItems(profile: PublicProfile): ProfileMobileMenuItem[] {
+  const items: ProfileMobileMenuItem[] = [{ href: "#", label: "Accueil" }];
+  const candidates: Array<{ type: ProfileSectionType; href: string; label: string }> = [
+    { type: "MUSIC", href: "#musique", label: "Musique" },
+    { type: "EVENTS", href: "#evenements", label: "Evenements" },
+    { type: "GALLERY", href: "#galerie", label: "Galerie" },
+    { type: "SERVICES", href: "#services", label: "Services" },
+    { type: "PRODUCTS", href: "#boutique", label: "Boutique" },
+    { type: "PROJECTS", href: "#projets", label: "Projets" },
+    { type: "CUSTOM_LINKS", href: "#liens", label: "Liens" },
+    { type: "ABOUT", href: "#apropos", label: "A propos" },
+  ];
+
+  for (const section of candidates) {
+    if (sectionHasContent(profile, section.type) && !items.some((item) => item.href === section.href)) {
+      items.push({ href: section.href, label: section.label });
+    }
+  }
+
+  if (profile.appointmentUrl || profile.whatsapp || profile.email || profile.phone) {
+    items.push({ href: "#contact", label: "Contact" });
+  }
+
+  return items;
+}
 function BottomNav({ profile }: { profile: PublicProfile }) {
   const moduleItems = profile.sections
     .map((section) => sectionNav[section.type])
@@ -106,6 +146,7 @@ export function ProfileCard({ profile }: { profile: PublicProfile }) {
   const coverPhoto = profile.coverPhoto || profile.profilePhoto;
   const hasHeroVisual = Boolean((!isMusic && heroPhoto) || profile.stats.length > 0);
   const tags = profile.tags.length > 0 ? profile.tags : [profile.jobTitle, profile.company].filter(Boolean).slice(0, 3) as string[];
+  const menuItems = mobileMenuItems(profile);
   const finalCtaHref = profile.finalCtaUrl || profile.appointmentUrl || (contact === "#contact" ? null : contact);
   const finalCtaLabel = profile.finalCtaLabel || (profile.profileType === "COMMERCE" ? "Commander maintenant" : profile.profileType === "MUSIC" ? "Ecouter maintenant" : profile.profileType === "CRAFT" ? "Demander un devis" : "Construisons ensemble");
   const heroMinHeight = isMusic ? "min-h-[590px] md:min-h-[690px]" : hasHeroVisual ? "min-h-[760px] md:min-h-[690px]" : "min-h-[560px] md:min-h-[560px]";
@@ -120,7 +161,7 @@ export function ProfileCard({ profile }: { profile: PublicProfile }) {
             <AodiOfficialLogo className="w-[150px] max-w-[46vw]" />
             <div className="flex items-center gap-3">
               <a href={qrHref} aria-label="QR Code" className="flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur focus:outline-none focus:ring-2 focus:ring-aodi-gold/50"><FaQrcode /></a>
-              <button type="button" aria-label="Menu" className="flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur"><FaBars /></button>
+              {isMusic ? <ProfileMobileMenu items={menuItems} /> : <button type="button" aria-label="Menu" className="flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur"><FaBars /></button>}
             </div>
           </div>
 
