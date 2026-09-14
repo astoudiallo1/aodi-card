@@ -62,7 +62,7 @@ function BottomNav({ profile }: { profile: PublicProfile }) {
   const items = [{ label: "Accueil", href: "#", icon: <FaHome className="h-5 w-5" />, active: true }, ...deduped, { label: "Contact", href: "#contact", icon: <FaEnvelope className="h-5 w-5" />, active: false }].slice(0, 5);
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto grid max-w-7xl border-t border-black/5 bg-white/95 px-2 py-2 text-center text-xs font-semibold text-aodi-violet-950 shadow-[0_-14px_34px_rgba(24,18,10,0.12)] backdrop-blur md:absolute" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
+    <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto grid max-w-7xl border-t border-black/5 bg-white/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 text-center text-xs font-semibold text-aodi-violet-950 shadow-[0_-14px_34px_rgba(24,18,10,0.12)] backdrop-blur md:absolute" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
       {items.map((item) => <a key={`${item.label}-${item.href}`} href={item.href} className={item.active ? "flex min-w-0 flex-col items-center gap-1 text-aodi-gold-dark" : "flex min-w-0 flex-col items-center gap-1 text-aodi-violet-950/80"}>{item.icon}<span className="max-w-full truncate">{item.label}</span></a>)}
     </nav>
   );
@@ -100,20 +100,22 @@ export function ProfileCard({ profile }: { profile: PublicProfile }) {
   const qrHref = `/api/qr/${profile.slug}/svg`;
   const contact = contactHref(profile);
   const visual = theme(profile.profileType);
+  const isMusic = profile.profileType === "MUSIC";
   const heroCopy = shortBio(profile);
   const heroPhoto = profile.profilePhoto || profile.coverPhoto;
   const coverPhoto = profile.coverPhoto || profile.profilePhoto;
-  const hasHeroVisual = Boolean(heroPhoto || profile.stats.length > 0);
+  const hasHeroVisual = Boolean((!isMusic && heroPhoto) || profile.stats.length > 0);
   const tags = profile.tags.length > 0 ? profile.tags : [profile.jobTitle, profile.company].filter(Boolean).slice(0, 3) as string[];
   const finalCtaHref = profile.finalCtaUrl || profile.appointmentUrl || (contact === "#contact" ? null : contact);
   const finalCtaLabel = profile.finalCtaLabel || (profile.profileType === "COMMERCE" ? "Commander maintenant" : profile.profileType === "MUSIC" ? "Ecouter maintenant" : profile.profileType === "CRAFT" ? "Demander un devis" : "Construisons ensemble");
+  const heroMinHeight = isMusic ? "min-h-[590px] md:min-h-[690px]" : hasHeroVisual ? "min-h-[760px] md:min-h-[690px]" : "min-h-[560px] md:min-h-[560px]";
 
   return (
     <article className={`relative mx-auto min-h-dvh w-full max-w-7xl overflow-hidden ${visual.surface} pb-24 shadow-card md:min-h-0 md:rounded-[1.5rem]`}>
-      <header className={`relative overflow-hidden bg-gradient-to-br ${visual.gradient} text-white ${hasHeroVisual ? "min-h-[760px] md:min-h-[690px]" : "min-h-[560px] md:min-h-[560px]"}`}>
-        {coverPhoto ? <img src={coverPhoto} alt="" aria-hidden className={`absolute inset-0 h-full w-full object-cover ${positionClass(profile.coverImagePosition)} opacity-55 mix-blend-screen`} /> : <div className="absolute inset-0 public-bogolan-cover opacity-35" />}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/35 to-black/75 md:bg-gradient-to-r md:from-black/80 md:via-black/35 md:to-black/20" />
-        <div className={`relative z-10 flex flex-col px-5 pb-7 pt-5 sm:px-9 ${hasHeroVisual ? "min-h-[760px] md:min-h-[690px]" : "min-h-[560px] md:min-h-[560px]"}`}>
+      <header className={`relative overflow-hidden bg-gradient-to-br ${visual.gradient} text-white ${heroMinHeight}`}>
+        {coverPhoto ? <img src={coverPhoto} alt="" aria-hidden className={`absolute inset-0 h-full w-full object-cover ${positionClass(profile.coverImagePosition)} ${isMusic ? "opacity-70" : "opacity-55 mix-blend-screen"}`} /> : <div className="absolute inset-0 public-bogolan-cover opacity-35" />}
+        <div className={isMusic ? "absolute inset-0 bg-gradient-to-b from-black/70 via-black/45 to-black/85 md:bg-gradient-to-r md:from-black/80 md:via-black/35 md:to-black/20" : "absolute inset-0 bg-gradient-to-b from-black/45 via-black/35 to-black/75 md:bg-gradient-to-r md:from-black/80 md:via-black/35 md:to-black/20"} />
+        <div className={`relative z-10 flex flex-col px-5 sm:px-9 ${isMusic ? "min-h-[590px] pb-5 pt-4 md:min-h-[690px] md:pb-7 md:pt-5" : hasHeroVisual ? "min-h-[760px] pb-7 pt-5 md:min-h-[690px]" : "min-h-[560px] pb-7 pt-5 md:min-h-[560px]"}`}>
           <div className="flex items-start justify-between gap-4">
             <AodiOfficialLogo className="w-[150px] max-w-[46vw]" />
             <div className="flex items-center gap-3">
@@ -122,21 +124,21 @@ export function ProfileCard({ profile }: { profile: PublicProfile }) {
             </div>
           </div>
 
-          <div className={`grid flex-1 gap-6 pt-9 md:items-end md:pt-0 ${hasHeroVisual ? "md:grid-cols-[0.82fr_1.18fr]" : "md:grid-cols-1"}`}>
-            <div className="relative z-10 pb-3 md:pb-12">
+          <div className={`grid flex-1 gap-6 md:items-end md:pt-0 ${isMusic ? "pt-7 md:grid-cols-[0.82fr_1.18fr]" : hasHeroVisual ? "pt-9 md:grid-cols-[0.82fr_1.18fr]" : "pt-9 md:grid-cols-1"}`}>
+            <div className={isMusic ? "relative z-10 flex flex-1 flex-col justify-end pb-1 md:block md:pb-12" : "relative z-10 pb-3 md:pb-12"}>
               <p className={`text-xs font-bold uppercase tracking-[0.34em] ${visual.accent}`}>{visual.label}{profile.jobTitle ? ` - ${profile.jobTitle}` : ""}</p>
-              <h1 className="mt-4 max-w-[720px] break-words font-display text-[3.7rem] font-bold leading-[0.82] text-white sm:text-[5rem] md:text-[6.4rem]">{profile.displayName}</h1>
-              {profile.jobTitle || profile.company ? <p className="mt-6 max-w-[560px] text-xl font-semibold leading-snug text-white">{[profile.jobTitle, profile.company].filter(Boolean).join(" - ")}</p> : null}
-              {heroCopy ? <p className="mt-4 max-w-[520px] text-lg leading-relaxed text-aodi-cream/95">{heroCopy}.</p> : null}
-              {tags.length > 0 ? <div className="mt-5 flex flex-wrap gap-2">{tags.map((tag) => <span key={tag} className="rounded-full border border-aodi-gold/60 bg-black/20 px-4 py-2 text-xs font-semibold text-aodi-gold-light backdrop-blur">{tag}</span>)}</div> : null}
+              <h1 className={isMusic ? "mt-3 max-w-[720px] break-words font-display text-[3.25rem] font-bold leading-[0.86] text-white min-[390px]:text-[3.55rem] sm:text-[5rem] md:mt-4 md:text-[6.4rem] md:leading-[0.82]" : "mt-4 max-w-[720px] break-words font-display text-[3.7rem] font-bold leading-[0.82] text-white sm:text-[5rem] md:text-[6.4rem]"}>{profile.displayName}</h1>
+              {profile.jobTitle || profile.company ? <p className={isMusic ? "mt-3 max-w-[560px] text-base font-semibold leading-snug text-white md:mt-6 md:text-xl" : "mt-6 max-w-[560px] text-xl font-semibold leading-snug text-white"}>{[profile.jobTitle, profile.company].filter(Boolean).join(" - ")}</p> : null}
+              {heroCopy ? <p className={isMusic ? "mt-3 line-clamp-2 max-w-[520px] text-sm leading-relaxed text-aodi-cream/95 md:mt-4 md:text-lg" : "mt-4 max-w-[520px] text-lg leading-relaxed text-aodi-cream/95"}>{heroCopy}.</p> : null}
+              {tags.length > 0 ? <div className={isMusic ? "mt-4 flex flex-wrap gap-2 md:mt-5" : "mt-5 flex flex-wrap gap-2"}>{tags.map((tag) => <span key={tag} className={isMusic ? "rounded-full border border-aodi-gold/60 bg-black/30 px-3 py-1.5 text-[0.72rem] font-semibold text-aodi-gold-light backdrop-blur md:px-4 md:py-2 md:text-xs" : "rounded-full border border-aodi-gold/60 bg-black/20 px-4 py-2 text-xs font-semibold text-aodi-gold-light backdrop-blur"}>{tag}</span>)}</div> : null}
               <SocialLinks profile={profile} compact />
-              <div className="mt-6 grid gap-3 min-[430px]:grid-cols-2">
-                <a href={`/api/vcard/${profile.slug}`} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-full bg-gradient-to-r from-aodi-gold-light via-aodi-gold to-aodi-gold-dark px-5 py-4 text-sm font-extrabold text-aodi-violet-950 shadow-[0_12px_30px_rgba(0,0,0,0.24)]"><FaSave /> Enregistrer mon contact</a>
-                <a href={contact} target={profile.whatsapp ? "_blank" : undefined} rel={profile.whatsapp ? "noopener noreferrer" : undefined} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-full bg-white px-5 py-4 text-sm font-extrabold text-aodi-violet-950 shadow-[0_12px_30px_rgba(0,0,0,0.18)]"><FaEnvelope /> Me contacter</a>
+              <div className={isMusic ? "mt-5 grid grid-cols-2 gap-2 md:mt-6 md:gap-3" : "mt-6 grid gap-3 min-[430px]:grid-cols-2"}>
+                <a href={`/api/vcard/${profile.slug}`} className={isMusic ? "inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-aodi-gold-light via-aodi-gold to-aodi-gold-dark px-3 py-3 text-xs font-extrabold text-aodi-violet-950 shadow-[0_12px_30px_rgba(0,0,0,0.24)] md:min-h-14 md:gap-3 md:px-5 md:py-4 md:text-sm" : "inline-flex min-h-14 items-center justify-center gap-3 rounded-full bg-gradient-to-r from-aodi-gold-light via-aodi-gold to-aodi-gold-dark px-5 py-4 text-sm font-extrabold text-aodi-violet-950 shadow-[0_12px_30px_rgba(0,0,0,0.24)]"}><FaSave className="shrink-0" /> {isMusic ? "Enregistrer" : "Enregistrer mon contact"}</a>
+                <a href={contact} target={profile.whatsapp ? "_blank" : undefined} rel={profile.whatsapp ? "noopener noreferrer" : undefined} className={isMusic ? "inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-3 py-3 text-xs font-extrabold text-aodi-violet-950 shadow-[0_12px_30px_rgba(0,0,0,0.18)] md:min-h-14 md:gap-3 md:px-5 md:py-4 md:text-sm" : "inline-flex min-h-14 items-center justify-center gap-3 rounded-full bg-white px-5 py-4 text-sm font-extrabold text-aodi-violet-950 shadow-[0_12px_30px_rgba(0,0,0,0.18)]"}><FaEnvelope className="shrink-0" /> Me contacter</a>
               </div>
             </div>
 
-            <div className="relative min-h-[390px] md:min-h-[620px]">
+            <div className={isMusic ? "relative hidden min-h-[390px] md:block md:min-h-[620px]" : "relative min-h-[390px] md:min-h-[620px]"}>
               {heroPhoto ? <img src={heroPhoto} alt={profile.displayName} className={`absolute inset-x-0 bottom-0 mx-auto h-full w-full object-contain ${positionClass(profile.heroImagePosition)} drop-shadow-[0_28px_44px_rgba(0,0,0,0.45)] md:object-cover`} /> : <div className="absolute inset-x-4 bottom-8 flex h-[340px] items-center justify-center rounded-lg border border-aodi-gold/40 bg-black/25 font-display text-7xl text-aodi-gold-light">{initials(profile)}</div>}
               <div className="absolute bottom-7 right-0 hidden w-[220px] md:block"><StatsPanel profile={profile} /></div>
             </div>
@@ -144,12 +146,12 @@ export function ProfileCard({ profile }: { profile: PublicProfile }) {
         </div>
       </header>
 
-      <StatsStrip profile={profile} />
+      {isMusic ? <div className="hidden md:block"><StatsStrip profile={profile} /></div> : <StatsStrip profile={profile} />}
 
-      {profile.bio ? <section className="relative z-10 mt-4 px-4 sm:px-7"><div className="grid gap-4 rounded-lg border border-white/50 bg-white/70 p-5 text-aodi-violet-950 shadow-[0_18px_42px_rgba(24,18,10,0.16)] backdrop-blur md:grid-cols-[1fr_auto] md:items-center"><p className="font-display text-xl font-semibold italic leading-relaxed">{profile.bio.split("\n")[0]}</p><a href="#apropos" className="inline-flex items-center justify-center gap-3 rounded-full bg-aodi-gold px-5 py-3 text-sm font-extrabold text-aodi-violet-950">Decouvrir mon parcours <FaArrowRight /></a></div></section> : null}
+      {profile.bio ? <section className={isMusic ? "relative z-10 mt-4 hidden px-4 sm:px-7 md:block" : "relative z-10 mt-4 px-4 sm:px-7"}><div className="grid gap-4 rounded-lg border border-white/50 bg-white/70 p-5 text-aodi-violet-950 shadow-[0_18px_42px_rgba(24,18,10,0.16)] backdrop-blur md:grid-cols-[1fr_auto] md:items-center"><p className="font-display text-xl font-semibold italic leading-relaxed">{profile.bio.split("\n")[0]}</p><a href="#apropos" className="inline-flex items-center justify-center gap-3 rounded-full bg-aodi-gold px-5 py-3 text-sm font-extrabold text-aodi-violet-950">Decouvrir mon parcours <FaArrowRight /></a></div></section> : null}
 
-      <div className="mt-6 space-y-7">
-        <ProfileUtilityCards displayName={profile.displayName} slug={profile.slug} publicUrl={publicUrl} appointmentUrl={profile.appointmentUrl} />
+      <div className={isMusic ? "mt-4 space-y-5 md:mt-6 md:space-y-7" : "mt-6 space-y-7"}>
+        <ProfileUtilityCards displayName={profile.displayName} slug={profile.slug} publicUrl={publicUrl} appointmentUrl={profile.appointmentUrl} profileType={profile.profileType} />
         <ProfileContentSections slug={profile.slug} bio={profile.bio} products={profile.products} services={profile.services} projects={profile.projects} galleryItems={profile.galleryItems} customLinks={profile.customLinks} musicTracks={profile.musicTracks} youtubeVideos={profile.youtubeVideos} youtubeChannel={profile.youtubeChannel} events={profile.events} sections={profile.sections} profileType={profile.profileType} />
         {finalCtaHref ? <section className="relative overflow-hidden bg-aodi-violet-950 px-5 py-10 text-white sm:px-9"><div className="absolute inset-0 public-bogolan-cover opacity-25" /><div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-center md:justify-between"><p className="font-display text-3xl font-semibold italic leading-tight text-aodi-cream">{profile.tagline || heroCopy || "Votre identite, sans limites."}</p><a href={finalCtaHref} target={finalCtaHref.startsWith("http") ? "_blank" : undefined} rel={finalCtaHref.startsWith("http") ? "noopener noreferrer" : undefined} className="inline-flex items-center justify-center gap-3 rounded-full bg-aodi-gold px-6 py-4 text-sm font-extrabold text-aodi-violet-950">{finalCtaLabel} <FaArrowRight /></a></div></section> : null}
       </div>
