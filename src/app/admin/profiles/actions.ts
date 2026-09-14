@@ -1,6 +1,8 @@
 "use server";
 
 import { requireAdminAccess } from "@/lib/admin-auth";
+import { FormError } from "@/lib/form-error";
+import { deleteMedia } from "@/lib/media-storage";
 import { prisma } from "@/lib/prisma";
 import { saveProfilePhoto } from "@/lib/profile-photo-storage";
 import { generateUniqueProfileSlug } from "@/lib/slug";
@@ -52,13 +54,13 @@ const IMAGE_POSITIONS = new Set(["center", "top", "bottom", "left", "right"]);
 
 function profileType(formData: FormData): PrismaProfileType {
   const value = optionalString(formData, "profileType") ?? PrismaProfileType.GENERAL;
-  if (!PROFILE_TYPES.has(value as PrismaProfileType)) throw new Error("Type d experience non autorise.");
+  if (!PROFILE_TYPES.has(value as PrismaProfileType)) throw new FormError("Type d experience non autorise.");
   return value as PrismaProfileType;
 }
 
 function imagePosition(formData: FormData, key: string) {
   const value = optionalString(formData, key) ?? "center";
-  if (!IMAGE_POSITIONS.has(value)) throw new Error("Position d image non autorisee.");
+  if (!IMAGE_POSITIONS.has(value)) throw new FormError("Position d image non autorisee.");
   return value;
 }
 
@@ -75,10 +77,10 @@ function optionalUrl(formData: FormData, key: string, label: string): string | n
   try {
     url = new URL(raw);
   } catch {
-    throw new Error(`${label} doit etre une URL valide.`);
+    throw new FormError(`${label} doit etre une URL valide.`);
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error(`${label} doit commencer par http:// ou https://.`);
+    throw new FormError(`${label} doit commencer par http:// ou https://.`);
   }
   return url.toString();
 }
@@ -86,7 +88,7 @@ function requiredString(formData: FormData, key: string, label: string): string 
   const value = optionalString(formData, key);
 
   if (!value) {
-    throw new Error(`${label} est obligatoire.`);
+    throw new FormError(`${label} est obligatoire.`);
   }
 
   return value;
@@ -131,6 +133,15 @@ async function readUploadedFile(formData: FormData, key: string): Promise<string
   return saveProfilePhoto(file);
 }
 
+function wantsRemoval(formData: FormData, key: string) {
+  return formData.get(key) === "true";
+}
+
+// Une image fraichement stockee est supprimee si l'ecriture en base echoue : pas de fichier orphelin dans le Blob.
+async function discardUploads(...urls: (string | null | undefined)[]) {
+  await Promise.all(urls.filter((url): url is string => Boolean(url)).map((url) => deleteMedia(url).catch(() => undefined)));
+}
+
 function logCreateProfileStep(step: string, details: Record<string, unknown> = {}) {
   console.info("[AODI createProfileAction]", step, details);
 }
@@ -147,14 +158,24 @@ function getDatabaseRuntimeFlags() {
   };
 }
 
+type ProfileColumn = { dataType: string; udtName: string };
+
 async function getProfileColumns() {
-  const rows = await prisma.$queryRaw<{ column_name: string }[]>`
-    SELECT column_name
+  const rows = await prisma.$queryRaw<{ column_name: string; data_type: string; udt_name: string }[]>`
+    SELECT column_name, data_type, udt_name
     FROM information_schema.columns
     WHERE table_schema = 'public' AND table_name = 'Profile'
   `;
 
-  return new Set(rows.map((row) => row.column_name));
+  return new Map<string, ProfileColumn>(rows.map((row) => [row.column_name, { dataType: row.data_type, udtName: row.udt_name }]));
+}
+
+// Les parametres d'une requete brute sont envoyes en `text` : une colonne enum ("ProfileType") ou tableau
+// exige un cast explicite, sinon PostgreSQL refuse l'insertion (erreur 42804) pour tous les nouveaux profils.
+function sqlValue(value: string | string[] | boolean | Date | null, column: ProfileColumn) {
+  if (value !== null && column.dataType === "USER-DEFINED") return Prisma.sql`CAST(${value} AS ${Prisma.raw(`"${column.udtName}"`)})`;
+  if (Array.isArray(value) && column.dataType === "ARRAY") return Prisma.sql`CAST(${value} AS ${Prisma.raw(`${column.udtName.replace(/^_/, "")}[]`)})`;
+  return Prisma.sql`${value}`;
 }
 
 async function createProfileRecord({
@@ -215,7 +236,7 @@ async function createProfileRecord({
   }
 
   const columnsSql = Prisma.join(entries.map(([column]) => Prisma.raw(`"${column}"`)));
-  const valuesSql = Prisma.join(entries.map(([, value]) => value));
+  const valuesSql = Prisma.join(entries.map(([column, value]) => sqlValue(value, availableColumns.get(column)!)));
   const [profile] = await prisma.$queryRaw<{ slug: string }[]>`
     INSERT INTO "Profile" (${columnsSql})
     VALUES (${valuesSql})
@@ -244,7 +265,13 @@ export async function createProfileAction(formData: FormData) {
   const coverPhoto = await readUploadedFile(formData, "coverPhoto");
 
   logCreateProfileStep("before-create", { slug, hasProfilePhoto: Boolean(profilePhoto), hasCoverPhoto: Boolean(coverPhoto) });
-  const profile = await createProfileRecord({ input, slug, profilePhoto, coverPhoto });
+  let profile: { slug: string };
+  try {
+    profile = await createProfileRecord({ input, slug, profilePhoto, coverPhoto });
+  } catch (error) {
+    await discardUploads(profilePhoto, coverPhoto);
+    throw error;
+  }
   logCreateProfileStep("after-create", { slug: profile.slug });
 
   revalidatePath("/admin");
@@ -258,20 +285,34 @@ export async function updateProfileAction(id: string, formData: FormData) {
   await requireAdminAccess();
 
   const input = readProfileInput(formData);
+  const current = await prisma.profile.findUnique({ where: { id }, select: { slug: true, profilePhoto: true, coverPhoto: true } });
+  if (!current) throw new FormError("Profil introuvable.");
+
+  // Chaque image se gere independamment : nouveau fichier (ajout/remplacement), suppression demandee, ou inchangee.
   const profilePhoto = await readUploadedFile(formData, "profilePhoto");
   const coverPhoto = await readUploadedFile(formData, "coverPhoto");
   const data: Prisma.ProfileUpdateInput = { ...input };
   if (profilePhoto) data.profilePhoto = profilePhoto;
+  else if (wantsRemoval(formData, "removeProfilePhoto")) data.profilePhoto = null;
   if (coverPhoto) data.coverPhoto = coverPhoto;
+  else if (wantsRemoval(formData, "removeCoverPhoto")) data.coverPhoto = null;
 
-  const profile = await prisma.profile.update({
-    where: { id },
-    data,
-    select: { slug: true },
-  });
+  let profile: { slug: string };
+  try {
+    profile = await prisma.profile.update({ where: { id }, data, select: { slug: true } });
+  } catch (error) {
+    // La base n'a pas ete modifiee : l'ancienne image reste en place, la nouvelle est retiree du stockage.
+    await discardUploads(profilePhoto, coverPhoto);
+    throw error;
+  }
+
+  // Seulement apres le succes en base : l'ancien fichier remplace ou supprime est retire du stockage.
+  if (data.profilePhoto !== undefined && current.profilePhoto && current.profilePhoto !== data.profilePhoto) await deleteMedia(current.profilePhoto);
+  if (data.coverPhoto !== undefined && current.coverPhoto && current.coverPhoto !== data.coverPhoto) await deleteMedia(current.coverPhoto);
 
   revalidatePath("/admin");
   revalidatePath("/admin/profiles");
+  revalidatePath(`/admin/profiles/${id}`);
   revalidatePath(`/${profile.slug}`);
   redirect("/admin/profiles");
 }

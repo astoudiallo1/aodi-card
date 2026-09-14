@@ -1,6 +1,7 @@
 "use server";
 
 import { requireAdminAccess } from "@/lib/admin-auth";
+import { FormError } from "@/lib/form-error";
 import { deleteMedia, uploadMedia, type MediaFolder } from "@/lib/media-storage";
 import { prisma } from "@/lib/prisma";
 import { ProfileType } from "@prisma/client";
@@ -26,7 +27,7 @@ function optionalString(formData: FormData, key: string): string | null {
 
 function requiredString(formData: FormData, key: string, label: string): string {
   const value = optionalString(formData, key);
-  if (!value) throw new Error(`${label} est obligatoire.`);
+  if (!value) throw new FormError(`${label} est obligatoire.`);
   return value;
 }
 
@@ -40,13 +41,13 @@ function optionalPrice(formData: FormData, key: string, label: string): number |
   if (!raw) return null;
   const normalized = raw.replace(/[^0-9]/g, "");
   const value = Number.parseInt(normalized, 10);
-  if (!Number.isFinite(value) || value < 0) throw new Error(`${label} doit etre un nombre positif.`);
+  if (!Number.isFinite(value) || value < 0) throw new FormError(`${label} doit etre un nombre positif.`);
   return value;
 }
 
 function requiredPrice(formData: FormData, key: string, label: string): number {
   const value = optionalPrice(formData, key, label);
-  if (value === null) throw new Error(`${label} est obligatoire.`);
+  if (value === null) throw new FormError(`${label} est obligatoire.`);
   return value;
 }
 
@@ -54,7 +55,7 @@ function integer(formData: FormData, key: string) {
   const raw = optionalString(formData, key);
   if (!raw) return 0;
   const value = Number.parseInt(raw, 10);
-  if (!Number.isInteger(value)) throw new Error("L'ordre d'affichage doit etre un nombre entier.");
+  if (!Number.isInteger(value)) throw new FormError("L'ordre d'affichage doit etre un nombre entier.");
   return value;
 }
 
@@ -65,10 +66,10 @@ function optionalUrl(formData: FormData, key: string, label: string): string | n
   try {
     url = new URL(raw);
   } catch {
-    throw new Error(`${label} doit etre une URL valide.`);
+    throw new FormError(`${label} doit etre une URL valide.`);
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error(`${label} doit commencer par http:// ou https://.`);
+    throw new FormError(`${label} doit commencer par http:// ou https://.`);
   }
   return url.toString();
 }
@@ -76,7 +77,7 @@ function optionalUrl(formData: FormData, key: string, label: string): string | n
 
 function profileTypeValue(formData: FormData): ProfileType {
   const value = optionalString(formData, "profileType") ?? ProfileType.GENERAL;
-  if (!PROFILE_TYPES.has(value as ProfileType)) throw new Error("Type d experience non autorise.");
+  if (!PROFILE_TYPES.has(value as ProfileType)) throw new FormError("Type d experience non autorise.");
   return value as ProfileType;
 }
 
@@ -88,7 +89,7 @@ function tagsValue(formData: FormData) {
 
 function imagePositionValue(formData: FormData, key: string) {
   const value = optionalString(formData, key) ?? "center";
-  if (!IMAGE_POSITIONS.has(value)) throw new Error("Position d image non autorisee.");
+  if (!IMAGE_POSITIONS.has(value)) throw new FormError("Position d image non autorisee.");
   return value;
 }
 
@@ -96,13 +97,13 @@ function optionalDate(formData: FormData, key: string, label: string): Date | nu
   const raw = optionalString(formData, key);
   if (!raw) return null;
   const value = new Date(raw);
-  if (Number.isNaN(value.getTime())) throw new Error(`${label} doit etre une date valide.`);
+  if (Number.isNaN(value.getTime())) throw new FormError(`${label} doit etre une date valide.`);
   return value;
 }
 
 function requiredDate(formData: FormData, key: string, label: string): Date {
   const value = optionalDate(formData, key, label);
-  if (!value) throw new Error(`${label} est obligatoire.`);
+  if (!value) throw new FormError(`${label} est obligatoire.`);
   return value;
 }
 function cleanWhatsApp(formData: FormData, key: string) {
@@ -160,7 +161,7 @@ async function deletePreviousImageIfNeeded(previousUrl: string | null, image: Im
 async function requireProfile(profileId: string): Promise<ProfileRef> {
   await requireAdminAccess();
   const profile = await prisma.profile.findUnique({ where: { id: profileId }, select: { id: true, slug: true } });
-  if (!profile) throw new Error("Profil introuvable.");
+  if (!profile) throw new FormError("Profil introuvable.");
   return profile;
 }
 
@@ -186,31 +187,31 @@ function redirectTo(profileId: string, kind: ContentKind) {
 
 async function ensureProduct(profileId: string, productId: string) {
   const item = await prisma.product.findUnique({ where: { id: productId }, select: { id: true, profileId: true, imageUrl: true } });
-  if (!item || item.profileId !== profileId) throw new Error("Produit introuvable pour ce profil.");
+  if (!item || item.profileId !== profileId) throw new FormError("Produit introuvable pour ce profil.");
   return item;
 }
 
 async function ensureService(profileId: string, serviceId: string) {
   const item = await prisma.service.findUnique({ where: { id: serviceId }, select: { id: true, profileId: true, imageUrl: true } });
-  if (!item || item.profileId !== profileId) throw new Error("Service introuvable pour ce profil.");
+  if (!item || item.profileId !== profileId) throw new FormError("Service introuvable pour ce profil.");
   return item;
 }
 
 async function ensureProject(profileId: string, projectId: string) {
   const item = await prisma.project.findUnique({ where: { id: projectId }, select: { id: true, profileId: true, imageUrl: true } });
-  if (!item || item.profileId !== profileId) throw new Error("Projet introuvable pour ce profil.");
+  if (!item || item.profileId !== profileId) throw new FormError("Projet introuvable pour ce profil.");
   return item;
 }
 
 async function ensureGalleryItem(profileId: string, galleryItemId: string) {
   const item = await prisma.galleryItem.findUnique({ where: { id: galleryItemId }, select: { id: true, profileId: true, imageUrl: true } });
-  if (!item || item.profileId !== profileId) throw new Error("Image introuvable pour ce profil.");
+  if (!item || item.profileId !== profileId) throw new FormError("Image introuvable pour ce profil.");
   return item;
 }
 
 async function ensureCustomLink(profileId: string, customLinkId: string) {
   const item = await prisma.customLink.findUnique({ where: { id: customLinkId }, select: { id: true, profileId: true } });
-  if (!item || item.profileId !== profileId) throw new Error("Lien introuvable pour ce profil.");
+  if (!item || item.profileId !== profileId) throw new FormError("Lien introuvable pour ce profil.");
 }
 
 export async function createProductAction(profileId: string, formData: FormData) {
@@ -274,7 +275,7 @@ export async function deleteProductAction(profileId: string, productId: string) 
 export async function toggleProductVisibleAction(profileId: string, productId: string) {
   const profile = await requireProfile(profileId);
   const item = await prisma.product.findUnique({ where: { id: productId }, select: { profileId: true, isVisible: true } });
-  if (!item || item.profileId !== profile.id) throw new Error("Produit introuvable pour ce profil.");
+  if (!item || item.profileId !== profile.id) throw new FormError("Produit introuvable pour ce profil.");
   await prisma.product.update({ where: { id: productId }, data: { isVisible: !item.isVisible } });
   revalidateProfile(profile);
 }
@@ -282,7 +283,7 @@ export async function toggleProductVisibleAction(profileId: string, productId: s
 export async function toggleProductAvailableAction(profileId: string, productId: string) {
   const profile = await requireProfile(profileId);
   const item = await prisma.product.findUnique({ where: { id: productId }, select: { profileId: true, isAvailable: true } });
-  if (!item || item.profileId !== profile.id) throw new Error("Produit introuvable pour ce profil.");
+  if (!item || item.profileId !== profile.id) throw new FormError("Produit introuvable pour ce profil.");
   await prisma.product.update({ where: { id: productId }, data: { isAvailable: !item.isAvailable } });
   revalidateProfile(profile);
 }
@@ -290,7 +291,7 @@ export async function toggleProductAvailableAction(profileId: string, productId:
 export async function toggleProductFeaturedAction(profileId: string, productId: string) {
   const profile = await requireProfile(profileId);
   const item = await prisma.product.findUnique({ where: { id: productId }, select: { profileId: true, isFeatured: true } });
-  if (!item || item.profileId !== profile.id) throw new Error("Produit introuvable pour ce profil.");
+  if (!item || item.profileId !== profile.id) throw new FormError("Produit introuvable pour ce profil.");
   await prisma.product.update({ where: { id: productId }, data: { isFeatured: !item.isFeatured } });
   revalidateProfile(profile);
 }
@@ -324,7 +325,7 @@ export async function deleteServiceAction(profileId: string, serviceId: string) 
 export async function toggleServiceVisibleAction(profileId: string, serviceId: string) {
   const profile = await requireProfile(profileId);
   const item = await prisma.service.findUnique({ where: { id: serviceId }, select: { profileId: true, isVisible: true } });
-  if (!item || item.profileId !== profile.id) throw new Error("Service introuvable pour ce profil.");
+  if (!item || item.profileId !== profile.id) throw new FormError("Service introuvable pour ce profil.");
   await prisma.service.update({ where: { id: serviceId }, data: { isVisible: !item.isVisible } });
   revalidateProfile(profile);
 }
@@ -358,7 +359,7 @@ export async function deleteProjectAction(profileId: string, projectId: string) 
 export async function toggleProjectVisibleAction(profileId: string, projectId: string) {
   const profile = await requireProfile(profileId);
   const item = await prisma.project.findUnique({ where: { id: projectId }, select: { profileId: true, isVisible: true } });
-  if (!item || item.profileId !== profile.id) throw new Error("Projet introuvable pour ce profil.");
+  if (!item || item.profileId !== profile.id) throw new FormError("Projet introuvable pour ce profil.");
   await prisma.project.update({ where: { id: projectId }, data: { isVisible: !item.isVisible } });
   revalidateProfile(profile);
 }
@@ -366,7 +367,7 @@ export async function toggleProjectVisibleAction(profileId: string, projectId: s
 export async function toggleProjectFeaturedAction(profileId: string, projectId: string) {
   const profile = await requireProfile(profileId);
   const item = await prisma.project.findUnique({ where: { id: projectId }, select: { profileId: true, isFeatured: true } });
-  if (!item || item.profileId !== profile.id) throw new Error("Projet introuvable pour ce profil.");
+  if (!item || item.profileId !== profile.id) throw new FormError("Projet introuvable pour ce profil.");
   await prisma.project.update({ where: { id: projectId }, data: { isFeatured: !item.isFeatured } });
   revalidateProfile(profile);
 }
@@ -375,7 +376,7 @@ export async function createGalleryItemAction(profileId: string, formData: FormD
   const profile = await requireProfile(profileId);
   const image = await readImageIntent(formData, "image", "gallery");
   const imageUrl = image.value;
-  if (!imageUrl) throw new Error("Une image est obligatoire pour la galerie.");
+  if (!imageUrl) throw new FormError("Une image est obligatoire pour la galerie.");
   await persistWithImage(image, () => prisma.galleryItem.create({ data: { profileId: profile.id, title: optionalString(formData, "title"), imageUrl, description: optionalString(formData, "description"), isVisible: checkbox(formData, "isVisible", true), displayOrder: integer(formData, "displayOrder") } }));
   revalidateProfile(profile);
   redirectTo(profile.id, "gallery");
@@ -385,7 +386,7 @@ export async function updateGalleryItemAction(profileId: string, galleryItemId: 
   const profile = await requireProfile(profileId);
   const previous = await ensureGalleryItem(profile.id, galleryItemId);
   const image = await readImageIntent(formData, "image", "gallery");
-  if (image.value === null) throw new Error("Une image est obligatoire pour la galerie.");
+  if (image.value === null) throw new FormError("Une image est obligatoire pour la galerie.");
   await persistWithImage(image, () => prisma.galleryItem.update({ where: { id: galleryItemId }, data: { title: optionalString(formData, "title"), ...applyRequiredImageUpdate(image), description: optionalString(formData, "description"), isVisible: checkbox(formData, "isVisible"), displayOrder: integer(formData, "displayOrder") } }));
   await deletePreviousImageIfNeeded(previous.imageUrl, image);
   revalidateProfile(profile);
@@ -403,7 +404,7 @@ export async function deleteGalleryItemAction(profileId: string, galleryItemId: 
 export async function toggleGalleryItemVisibleAction(profileId: string, galleryItemId: string) {
   const profile = await requireProfile(profileId);
   const item = await prisma.galleryItem.findUnique({ where: { id: galleryItemId }, select: { profileId: true, isVisible: true } });
-  if (!item || item.profileId !== profile.id) throw new Error("Image introuvable pour ce profil.");
+  if (!item || item.profileId !== profile.id) throw new FormError("Image introuvable pour ce profil.");
   await prisma.galleryItem.update({ where: { id: galleryItemId }, data: { isVisible: !item.isVisible } });
   revalidateProfile(profile);
 }
@@ -433,7 +434,7 @@ export async function deleteCustomLinkAction(profileId: string, customLinkId: st
 export async function toggleCustomLinkVisibleAction(profileId: string, customLinkId: string) {
   const profile = await requireProfile(profileId);
   const item = await prisma.customLink.findUnique({ where: { id: customLinkId }, select: { profileId: true, isVisible: true } });
-  if (!item || item.profileId !== profile.id) throw new Error("Lien introuvable pour ce profil.");
+  if (!item || item.profileId !== profile.id) throw new FormError("Lien introuvable pour ce profil.");
   await prisma.customLink.update({ where: { id: customLinkId }, data: { isVisible: !item.isVisible } });
   revalidateProfile(profile);
 }
@@ -441,7 +442,7 @@ export async function toggleCustomLinkVisibleAction(profileId: string, customLin
 
 function sectionType(value: string): SectionType {
   if (!SECTION_TYPES.includes(value as SectionType)) {
-    throw new Error("Module de profil non autorise.");
+    throw new FormError("Module de profil non autorise.");
   }
   return value as SectionType;
 }
@@ -493,18 +494,18 @@ export async function updateProfileExperienceAction(profileId: string, formData:
 }
 async function ensureStat(profileId: string, statId: string) {
   const item = await prisma.profileStat.findUnique({ where: { id: statId }, select: { id: true, profileId: true } });
-  if (!item || item.profileId !== profileId) throw new Error("Statistique introuvable pour ce profil.");
+  if (!item || item.profileId !== profileId) throw new FormError("Statistique introuvable pour ce profil.");
 }
 
 async function ensureMusicTrack(profileId: string, trackId: string) {
   const item = await prisma.musicTrack.findUnique({ where: { id: trackId }, select: { id: true, profileId: true, coverUrl: true } });
-  if (!item || item.profileId !== profileId) throw new Error("Musique introuvable pour ce profil.");
+  if (!item || item.profileId !== profileId) throw new FormError("Musique introuvable pour ce profil.");
   return item;
 }
 
 async function ensureEvent(profileId: string, eventId: string) {
   const item = await prisma.profileEvent.findUnique({ where: { id: eventId }, select: { id: true, profileId: true, imageUrl: true } });
-  if (!item || item.profileId !== profileId) throw new Error("Evenement introuvable pour ce profil.");
+  if (!item || item.profileId !== profileId) throw new FormError("Evenement introuvable pour ce profil.");
   return item;
 }
 
@@ -533,7 +534,7 @@ export async function deleteStatAction(profileId: string, statId: string) {
 export async function toggleStatVisibleAction(profileId: string, statId: string) {
   const profile = await requireProfile(profileId);
   const item = await prisma.profileStat.findUnique({ where: { id: statId }, select: { profileId: true, isVisible: true } });
-  if (!item || item.profileId !== profile.id) throw new Error("Statistique introuvable pour ce profil.");
+  if (!item || item.profileId !== profile.id) throw new FormError("Statistique introuvable pour ce profil.");
   await prisma.profileStat.update({ where: { id: statId }, data: { isVisible: !item.isVisible } });
   revalidateProfile(profile);
 }
@@ -567,7 +568,7 @@ export async function deleteMusicTrackAction(profileId: string, trackId: string)
 export async function toggleMusicTrackVisibleAction(profileId: string, trackId: string) {
   const profile = await requireProfile(profileId);
   const item = await prisma.musicTrack.findUnique({ where: { id: trackId }, select: { profileId: true, isVisible: true } });
-  if (!item || item.profileId !== profile.id) throw new Error("Musique introuvable pour ce profil.");
+  if (!item || item.profileId !== profile.id) throw new FormError("Musique introuvable pour ce profil.");
   await prisma.musicTrack.update({ where: { id: trackId }, data: { isVisible: !item.isVisible } });
   revalidateProfile(profile);
 }
@@ -601,7 +602,7 @@ export async function deleteEventAction(profileId: string, eventId: string) {
 export async function toggleEventVisibleAction(profileId: string, eventId: string) {
   const profile = await requireProfile(profileId);
   const item = await prisma.profileEvent.findUnique({ where: { id: eventId }, select: { profileId: true, isVisible: true } });
-  if (!item || item.profileId !== profile.id) throw new Error("Evenement introuvable pour ce profil.");
+  if (!item || item.profileId !== profile.id) throw new FormError("Evenement introuvable pour ce profil.");
   await prisma.profileEvent.update({ where: { id: eventId }, data: { isVisible: !item.isVisible } });
   revalidateProfile(profile);
 }

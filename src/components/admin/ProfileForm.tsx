@@ -1,9 +1,90 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { formatBytes, IMAGE_HELP_TEXT, prepareImageForUpload, replaceInputFile, validateImageFile } from "@/lib/browser-image";
 
 const MAX_UNOPTIMIZED_BYTES = 3 * 1024 * 1024;
+
+type ImageStatus = { tone: "info" | "error"; text: string } | null;
+
+// Etat d'une image du profil (photo ou couverture), geree independamment de l'autre :
+// - `preview` : image actuelle, nouvelle selection, ou null apres suppression ;
+// - `removed` : suppression demandee, transmise au serveur via un champ cache.
+type ImageFieldState = { preview: string | null; removed: boolean; status: ImageStatus };
+
+function useProfileImage(initial: string | null) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [state, setState] = useState<ImageFieldState>({ preview: initial, removed: false, status: null });
+
+  function releasePreview(preview: string | null) {
+    if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
+  }
+
+  // Valide puis optimise l'image dans le navigateur ; l'input recoit la version optimisee envoyee par le formulaire.
+  async function onChange(event: ChangeEvent<HTMLInputElement>) {
+    const input = event.target;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      input.value = "";
+      setState((previous) => ({ ...previous, status: { tone: "error", text: validationError } }));
+      return;
+    }
+
+    input.value = "";
+    setState((previous) => ({ ...previous, status: { tone: "info", text: "Optimisation de l'image en cours..." } }));
+    try {
+      const prepared = await prepareImageForUpload(file);
+      if (!replaceInputFile(input, prepared.file)) {
+        if (prepared.file.size > MAX_UNOPTIMIZED_BYTES || file.size > MAX_UNOPTIMIZED_BYTES) {
+          setState((previous) => ({ ...previous, status: { tone: "error", text: "Ce navigateur ne permet pas l'optimisation automatique : choisis une image de moins de 3 Mo." } }));
+          return;
+        }
+        replaceInputFile(input, file);
+      }
+      const text = prepared.optimized ? `${prepared.file.name} : ${formatBytes(prepared.originalBytes)} optimisee en ${formatBytes(prepared.file.size)} (${prepared.width} x ${prepared.height} px)` : `${prepared.file.name} : ${formatBytes(prepared.file.size)}`;
+      setState((previous) => {
+        releasePreview(previous.preview);
+        return { preview: URL.createObjectURL(prepared.file), removed: false, status: { tone: "info", text } };
+      });
+    } catch (error) {
+      setState((previous) => ({ ...previous, status: { tone: "error", text: error instanceof Error ? error.message : "Impossible de traiter cette image." } }));
+    }
+  }
+
+  function remove(confirmText: string) {
+    if (!window.confirm(confirmText)) return;
+    if (inputRef.current) inputRef.current.value = "";
+    setState((previous) => {
+      releasePreview(previous.preview);
+      return { preview: null, removed: Boolean(initial), status: { tone: "info", text: "L'image sera supprimee a l'enregistrement." } };
+    });
+  }
+
+  function replace() {
+    inputRef.current?.click();
+  }
+
+  useEffect(() => () => releasePreview(state.preview), [state.preview]);
+
+  return { inputRef, state, onChange, remove, replace };
+}
+
+function ImageActions({ hasImage, addLabel, replaceLabel, onReplace, onRemove, removeKey }: { hasImage: boolean; addLabel: string; replaceLabel: string; onReplace: () => void; onRemove: () => void; removeKey: string }) {
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      <button type="button" onClick={onReplace} className="inline-flex items-center justify-center rounded-lg bg-white px-5 py-3 text-sm font-semibold text-aodi-violet-900 transition hover:bg-aodi-cream">{hasImage ? replaceLabel : addLabel}</button>
+      {hasImage ? <button type="button" data-remove={removeKey} onClick={onRemove} className="inline-flex items-center justify-center rounded-lg border border-red-300/60 bg-transparent px-5 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-500/10">Supprimer</button> : null}
+    </div>
+  );
+}
+
+function ImageStatusLine({ status }: { status: ImageStatus }) {
+  if (!status) return null;
+  return <p aria-live="polite" className={status.tone === "error" ? "mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700" : "mt-2 text-sm text-aodi-gold-light"}>{status.text}</p>;
+}
 
 export type AdminProfileFormData = {
   firstName: string;
@@ -143,91 +224,44 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export function ProfileForm({ action, submitLabel, profile }: ProfileFormProps) {
   const values = profile ?? emptyProfile;
-  const [profilePreview, setProfilePreview] = useState<string | null>(values.profilePhoto);
-  const [coverPreview, setCoverPreview] = useState<string | null>(values.coverPhoto);
-  const [imageStatus, setImageStatus] = useState<{ tone: "info" | "error"; text: string } | null>(null);
-
-  // Valide puis optimise l'image dans le navigateur ; l'input recoit la version optimisee envoyee par le formulaire.
-  async function handleImageChange(event: ChangeEvent<HTMLInputElement>, setPreview: (url: string | null) => void, fallback: string | null) {
-    const input = event.target;
-    const file = input.files?.[0];
-    setImageStatus(null);
-    if (!file) {
-      setPreview(fallback);
-      return;
-    }
-
-    const validationError = validateImageFile(file);
-    if (validationError) {
-      input.value = "";
-      setPreview(fallback);
-      setImageStatus({ tone: "error", text: validationError });
-      return;
-    }
-
-    input.value = "";
-    setImageStatus({ tone: "info", text: "Optimisation de l'image en cours..." });
-    try {
-      const prepared = await prepareImageForUpload(file);
-      if (!replaceInputFile(input, prepared.file)) {
-        if (prepared.file.size > MAX_UNOPTIMIZED_BYTES || file.size > MAX_UNOPTIMIZED_BYTES) {
-          setPreview(fallback);
-          setImageStatus({ tone: "error", text: "Ce navigateur ne permet pas l'optimisation automatique : choisis une image de moins de 3 Mo." });
-          return;
-        }
-        replaceInputFile(input, file);
-      }
-      setPreview(URL.createObjectURL(prepared.file));
-      setImageStatus({ tone: "info", text: prepared.optimized ? `${prepared.file.name} : ${formatBytes(prepared.originalBytes)} optimisee en ${formatBytes(prepared.file.size)} (${prepared.width} x ${prepared.height} px)` : `${prepared.file.name} : ${formatBytes(prepared.file.size)}` });
-    } catch (error) {
-      setPreview(fallback);
-      setImageStatus({ tone: "error", text: error instanceof Error ? error.message : "Impossible de traiter cette image." });
-    }
-  }
-
-  useEffect(() => {
-    return () => {
-      if (profilePreview?.startsWith("blob:")) URL.revokeObjectURL(profilePreview);
-      if (coverPreview?.startsWith("blob:")) URL.revokeObjectURL(coverPreview);
-    };
-  }, [profilePreview, coverPreview]);
+  const photo = useProfileImage(values.profilePhoto);
+  const cover = useProfileImage(values.coverPhoto);
 
   return (
     <form action={action} className="mt-8 space-y-5">
       <section className="rounded-lg border border-aodi-gold/35 bg-aodi-violet-950 p-5 text-white shadow-card sm:p-6">
         <div className="grid gap-6 lg:grid-cols-[180px_1fr] lg:items-center">
           <div className="h-28 w-28 overflow-hidden rounded-full border-2 border-aodi-gold bg-aodi-violet-900">
-            {profilePreview ? (
+            {photo.state.preview ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={profilePreview} alt="Apercu" className="h-full w-full object-cover" />
+              <img src={photo.state.preview} alt="Apercu" className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full items-center justify-center font-display text-3xl text-aodi-gold-light">A</div>
             )}
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-aodi-gold-light">Photo de profil</p>
-            <label className="mt-3 inline-flex cursor-pointer items-center justify-center rounded-lg bg-white px-5 py-3 text-sm font-semibold text-aodi-violet-900 transition hover:bg-aodi-cream">
-              Ajouter une photo
-              <input name="profilePhoto" type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => void handleImageChange(event, setProfilePreview, values.profilePhoto)} />
-            </label>
+            <input ref={photo.inputRef} name="profilePhoto" type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => void photo.onChange(event)} />
+            <input type="hidden" name="removeProfilePhoto" value={photo.state.removed ? "true" : "false"} />
+            <ImageActions hasImage={Boolean(photo.state.preview)} addLabel="Ajouter une photo" replaceLabel="Remplacer la photo" onReplace={photo.replace} onRemove={() => photo.remove("Supprimer la photo de profil ? La couverture et les autres informations sont conservees.")} removeKey="profilePhoto" />
+            <ImageStatusLine status={photo.state.status} />
           </div>
         </div>
         <div className="mt-6">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-aodi-gold-light">Photo de couverture</p>
           <div className="mt-3 overflow-hidden rounded-lg border border-white/10 bg-aodi-violet-900">
-            {coverPreview ? (
+            {cover.state.preview ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={coverPreview} alt="Apercu couverture" className="h-36 w-full object-cover" />
+              <img src={cover.state.preview} alt="Apercu couverture" className="h-36 w-full object-cover" />
             ) : (
               <div className="flex h-36 items-center justify-center text-sm text-aodi-cream/60">Background Bogolan AODI automatique</div>
             )}
           </div>
-          <label className="mt-3 inline-flex cursor-pointer items-center justify-center rounded-lg bg-white px-5 py-3 text-sm font-semibold text-aodi-violet-900 transition hover:bg-aodi-cream">
-            Ajouter une couverture
-            <input name="coverPhoto" type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => void handleImageChange(event, setCoverPreview, values.coverPhoto)} />
-          </label>
+          <input ref={cover.inputRef} name="coverPhoto" type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => void cover.onChange(event)} />
+          <input type="hidden" name="removeCoverPhoto" value={cover.state.removed ? "true" : "false"} />
+          <ImageActions hasImage={Boolean(cover.state.preview)} addLabel="Ajouter une couverture" replaceLabel="Remplacer la couverture" onReplace={cover.replace} onRemove={() => cover.remove("Supprimer la photo de couverture ? La photo de profil et les autres informations sont conservees.")} removeKey="coverPhoto" />
+          <ImageStatusLine status={cover.state.status} />
           <p className="mt-3 text-sm leading-relaxed text-aodi-cream/70">{IMAGE_HELP_TEXT}. Les images sont stockees en fichiers, jamais en base64 dans PostgreSQL.</p>
-          {imageStatus ? <p aria-live="polite" className={imageStatus.tone === "error" ? "mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700" : "mt-2 text-sm text-aodi-gold-light"}>{imageStatus.text}</p> : null}
         </div>
       </section>
 

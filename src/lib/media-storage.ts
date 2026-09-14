@@ -1,6 +1,7 @@
 import { mkdir, unlink, writeFile } from "fs/promises";
 import path from "path";
 import { del, put } from "@vercel/blob";
+import { FormError } from "@/lib/form-error";
 import { ImageOptimizationError, MAX_INPUT_IMAGE_BYTES, MAX_INPUT_IMAGE_LABEL, optimizeImage, type OptimizedImage } from "@/lib/image-optimizer";
 
 // Limite d'entree (fichier original) : l'image est ensuite optimisee (voir image-optimizer.ts) avant stockage.
@@ -18,7 +19,7 @@ export type MediaFolder = "profiles" | "products" | "services" | "projects" | "g
 
 function assertFolder(folder: string): asserts folder is MediaFolder {
   if (!ALLOWED_FOLDERS.has(folder)) {
-    throw new Error("Dossier media non autorise.");
+    throw new FormError("Dossier media non autorise.");
   }
 }
 
@@ -49,11 +50,11 @@ export function validateMedia(file: File) {
   }
 
   if (!isAllowedType(file)) {
-    throw new Error("L'image doit etre au format JPG, PNG ou WebP.");
+    throw new FormError("L'image doit etre au format JPG, PNG ou WebP.");
   }
 
   if (file.size > MAX_IMAGE_SIZE) {
-    throw new Error(`L'image ne doit pas depasser ${MAX_INPUT_IMAGE_LABEL}.`);
+    throw new FormError(`L'image ne doit pas depasser ${MAX_INPUT_IMAGE_LABEL}.`);
   }
 }
 
@@ -89,9 +90,9 @@ async function prepareImage(file: File, folder: MediaFolder): Promise<OptimizedI
     console.info("[media] image prete", { folder, from: image.originalBytes, to: image.bytes, size: `${image.width}x${image.height}`, type: image.contentType, optimized: image.optimized });
     return image;
   } catch (error) {
-    if (error instanceof ImageOptimizationError) throw new Error(error.message);
+    if (error instanceof ImageOptimizationError) throw new FormError(error.message);
     console.error("[media] preparation de l'image impossible", { folder, error });
-    throw new Error("L'image n'a pas pu etre traitee. Reessaie avec un autre fichier JPG, PNG ou WebP.");
+    throw new FormError("L'image n'a pas pu etre traitee. Reessaie avec un autre fichier JPG, PNG ou WebP.");
   }
 }
 
@@ -109,12 +110,12 @@ export async function uploadMedia(file: File, folder: MediaFolder = "profiles"):
       return await uploadToVercelBlob(image, folder);
     } catch (error) {
       console.error("[media] upload Vercel Blob impossible", { folder, error });
-      throw new Error("Le stockage de l'image a echoue. Reessaie dans quelques instants.");
+      throw new FormError("Le stockage de l'image a echoue. Reessaie dans quelques instants.");
     }
   }
 
   if (isVercelRuntimeWithoutPersistentStorage()) {
-    throw new Error("Le stockage Vercel Blob n'est pas configure. Connectez le Blob Store au projet Vercel pour fournir BLOB_STORE_ID/OIDC, ou configurez BLOB_READ_WRITE_TOKEN en mode legacy.");
+    throw new FormError("Le stockage Vercel Blob n'est pas configure. Connectez le Blob Store au projet Vercel pour fournir BLOB_STORE_ID/OIDC, ou configurez BLOB_READ_WRITE_TOKEN en mode legacy.");
   }
 
   return uploadToLocalDisk(image, folder);
