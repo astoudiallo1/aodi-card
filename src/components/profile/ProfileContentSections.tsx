@@ -1,5 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
-import type { ProfileSectionType, ProfileType, PublicCustomLink, PublicGalleryItem, PublicMusicTrack, PublicProduct, PublicProfileEvent, PublicProfileSection, PublicProject, PublicService } from "@/types/profile";
+import type { ProfileSectionType, ProfileType, PublicCustomLink, PublicGalleryItem, PublicMusicTrack, PublicProduct, PublicYouTubeChannel, PublicYouTubeVideo, PublicProfileEvent, PublicProfileSection, PublicProject, PublicService } from "@/types/profile";
 import { FaApple, FaExternalLinkAlt, FaGithub, FaImages, FaMusic, FaPlay, FaStore, FaTools } from "react-icons/fa";
 import { FaSpotify, FaYoutube } from "react-icons/fa6";
 
@@ -137,11 +137,120 @@ function LinkSection({ links, title, profileType }: { links: PublicCustomLink[];
   return <section id="liens" className="space-y-4 scroll-mt-24"><SectionTitle title={sectionLabel("CUSTOM_LINKS", profileType, title)} /><div className="grid gap-3 px-4 sm:px-7 md:grid-cols-2">{links.map((link) => <a key={link.id} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between gap-4 rounded-lg border border-black/5 bg-white px-4 py-4 text-sm font-bold text-aodi-violet-950 shadow-[0_10px_22px_rgba(24,18,10,0.08)]"><span>{link.icon ? `${link.icon} ` : ""}{link.label}</span><FaExternalLinkAlt className="h-4 w-4 shrink-0 text-aodi-gold-dark" /></a>)}</div></section>;
 }
 
-function MusicSection({ tracks, title, profileType }: { tracks: PublicMusicTrack[]; title?: string | null; profileType: ProfileType }) {
-  if (tracks.length === 0) return null;
+function formatVideoDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+}
+
+function YouTubeVideoCard({ video }: { video: PublicYouTubeVideo }) {
+  const date = formatVideoDate(video.publishedAt);
+  return (
+    <article className="w-[74vw] max-w-[320px] shrink-0 snap-start overflow-hidden rounded-lg border border-black/5 bg-white shadow-[0_14px_30px_rgba(24,18,10,0.09)] sm:w-[46%] md:w-auto md:max-w-none">
+      <a href={video.url} target="_blank" rel="noopener noreferrer" className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-aodi-gold">
+        <div className="relative aspect-video overflow-hidden bg-aodi-violet-950">
+          <img src={video.thumbnail} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+          <span aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
+          <span aria-hidden className="absolute inset-0 flex items-center justify-center"><span className="flex h-12 w-12 items-center justify-center rounded-full bg-aodi-gold text-aodi-violet-950 shadow-[0_10px_24px_rgba(0,0,0,0.32)] transition group-hover:scale-110"><FaPlay className="ml-0.5 h-4 w-4" /></span></span>
+        </div>
+        <div className="p-4">
+          <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-extrabold leading-snug text-aodi-violet-950">{video.title}</h3>
+          <div className="mt-3 flex items-center justify-between gap-3">
+            {date ? <time dateTime={video.publishedAt} className="text-xs font-semibold text-aodi-violet-700/65">{date}</time> : <span />}
+            <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-aodi-gold-dark"><FaYoutube className="h-3.5 w-3.5" /> Regarder</span>
+          </div>
+        </div>
+      </a>
+    </article>
+  );
+}
+
+function YouTubeChannelLink({ channel, label = "Voir toute la chaine" }: { channel: PublicYouTubeChannel; label?: string }) {
+  return (
+    <div className="flex justify-center px-4 sm:px-7">
+      <a href={channel.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border-2 border-aodi-violet-950 px-6 py-3 text-sm font-extrabold text-aodi-violet-950 transition hover:bg-aodi-violet-950 hover:text-white">
+        <FaYoutube className="h-4 w-4" /> {label}
+      </a>
+    </div>
+  );
+}
+
+function trackLinks(track: PublicMusicTrack) {
+  return [
+    track.spotifyUrl ? { key: "spotify", href: track.spotifyUrl, label: "Spotify", className: "bg-[#1DB954] text-white", icon: <FaSpotify /> } : null,
+    track.appleUrl ? { key: "apple", href: track.appleUrl, label: "Apple Music", className: "bg-black text-white", icon: <FaApple /> } : null,
+    track.youtubeUrl ? { key: "youtube", href: track.youtubeUrl, label: "YouTube", className: "bg-[#FF0000] text-white", icon: <FaYoutube /> } : null,
+    track.audioUrl && !track.spotifyUrl && !track.appleUrl && !track.youtubeUrl ? { key: "audio", href: track.audioUrl, label: "Ecouter", className: "bg-aodi-gold text-aodi-violet-950", icon: <FaPlay className="h-3 w-3" /> } : null,
+  ].filter((link): link is NonNullable<typeof link> => Boolean(link));
+}
+
+function ManualTrackList({ tracks }: { tracks: PublicMusicTrack[] }) {
+  return (
+    <div className="grid grid-cols-1 gap-3 px-4 sm:px-7 md:grid-cols-2">
+      {tracks.map((track) => (
+        <article key={track.id} className="flex min-w-0 items-center gap-3 rounded-lg bg-white p-3 shadow-[0_10px_22px_rgba(24,18,10,0.08)]">
+          {track.coverUrl ? <img src={track.coverUrl} alt={track.title} loading="lazy" className="h-14 w-14 shrink-0 rounded-lg object-cover" /> : <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-aodi-violet-950 text-aodi-gold"><FaMusic className="h-5 w-5" /></span>}
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-sm font-extrabold text-aodi-violet-950">{track.title}</h3>
+            {track.artist ? <p className="truncate text-xs text-aodi-violet-700/75">{track.artist}</p> : null}
+          </div>
+          <div className="flex shrink-0 gap-2">
+            {trackLinks(track).map((link) => <a key={link.key} aria-label={link.label} href={link.href} target="_blank" rel="noopener noreferrer" className={`inline-flex h-10 w-10 items-center justify-center rounded-full ${link.className}`}>{link.icon}</a>)}
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function FeaturedTrack({ track }: { track: PublicMusicTrack }) {
+  const listenHref = track.spotifyUrl || track.appleUrl || track.youtubeUrl || track.audioUrl;
+  return (
+    <article className="mx-4 overflow-hidden rounded-lg bg-aodi-violet-950 text-white shadow-[0_18px_40px_rgba(24,18,10,0.18)] sm:mx-7 md:grid md:grid-cols-[220px_1fr]">
+      {track.coverUrl ? <img src={track.coverUrl} alt={track.title} className="aspect-square w-full object-cover" /> : <div className="flex aspect-square items-center justify-center bg-black text-aodi-gold"><FaMusic className="h-14 w-14" /></div>}
+      <div className="p-5">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-aodi-gold">En avant</p>
+        <h3 className="mt-2 text-3xl font-extrabold text-white">{track.title}</h3>
+        {track.artist ? <p className="mt-1 font-semibold text-aodi-cream/80">{track.artist}</p> : null}
+        <div className="mt-5 flex flex-wrap gap-2">
+          {listenHref ? <a href={listenHref} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-lg bg-aodi-gold px-5 py-3 text-sm font-bold text-aodi-violet-950"><FaPlay className="h-3 w-3" />Ecouter</a> : null}
+          {trackLinks(track).filter((link) => link.key !== "audio").map((link) => <a key={link.key} aria-label={link.label} href={link.href} target="_blank" rel="noopener noreferrer" className={`inline-flex h-11 w-11 items-center justify-center rounded-full ${link.className}`}>{link.icon}</a>)}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+/**
+ * Dernieres sorties : les videos YouTube synchronisees sont prioritaires ; sans elles, les MusicTrack manuels
+ * prennent le relais ; sans aucun contenu, la section n'est pas rendue (elle est deja filtree cote serveur).
+ */
+function MusicSection({ tracks, youtubeVideos, youtubeChannel, title, profileType }: { tracks: PublicMusicTrack[]; youtubeVideos: PublicYouTubeVideo[]; youtubeChannel: PublicYouTubeChannel | null; title?: string | null; profileType: ProfileType }) {
+  if (youtubeVideos.length === 0 && tracks.length === 0) return null;
+  const heading = sectionLabel("MUSIC", profileType, title);
+
+  if (youtubeVideos.length > 0) {
+    return (
+      <section id="musique" className="space-y-5 scroll-mt-24">
+        <SectionTitle title={heading} />
+        <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-px-4 px-4 pb-3 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:scroll-px-7 sm:px-7 md:grid md:grid-cols-3 md:overflow-visible md:pb-0">
+          {youtubeVideos.slice(0, 6).map((video) => <YouTubeVideoCard key={video.videoId} video={video} />)}
+        </div>
+        {youtubeChannel ? <YouTubeChannelLink channel={youtubeChannel} /> : null}
+        {tracks.length > 0 ? <div className="space-y-3 pt-2"><p className="px-4 text-xs font-bold uppercase tracking-[0.18em] text-aodi-violet-700/60 sm:px-7">Ecouter aussi</p><ManualTrackList tracks={tracks} /></div> : null}
+      </section>
+    );
+  }
+
   const [featured, ...others] = tracks;
-  const listenHref = featured.spotifyUrl || featured.appleUrl || featured.youtubeUrl || featured.audioUrl;
-  return <section id="musique" className="space-y-4 scroll-mt-24"><SectionTitle title={sectionLabel("MUSIC", profileType, title)} /><article className="mx-4 overflow-hidden rounded-lg bg-aodi-violet-950 text-white shadow-[0_18px_40px_rgba(24,18,10,0.18)] sm:mx-7 md:grid md:grid-cols-[220px_1fr]">{featured.coverUrl ? <img src={featured.coverUrl} alt={featured.title} className="aspect-square w-full object-cover" /> : <div className="flex aspect-square items-center justify-center bg-black text-aodi-gold"><FaMusic className="h-14 w-14" /></div>}<div className="p-5"><p className="text-xs font-bold uppercase tracking-[0.18em] text-aodi-gold">En avant</p><h3 className="mt-2 text-3xl font-extrabold text-white">{featured.title}</h3>{featured.artist ? <p className="mt-1 font-semibold text-aodi-cream/80">{featured.artist}</p> : null}<div className="mt-5 flex flex-wrap gap-2">{listenHref ? <a href={listenHref} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-lg bg-aodi-gold px-5 py-3 text-sm font-bold text-aodi-violet-950"><FaPlay className="h-3 w-3" />Ecouter</a> : null}{featured.spotifyUrl ? <a aria-label="Spotify" href={featured.spotifyUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#1DB954] text-white"><FaSpotify /></a> : null}{featured.appleUrl ? <a aria-label="Apple Music" href={featured.appleUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-black text-white"><FaApple /></a> : null}{featured.youtubeUrl ? <a aria-label="YouTube" href={featured.youtubeUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#FF0000] text-white"><FaYoutube /></a> : null}</div></div></article>{others.length > 0 ? <div className="grid gap-3 px-4 sm:px-7 md:grid-cols-3">{others.map((track) => <article key={track.id} className="rounded-lg bg-white p-4 shadow-[0_10px_22px_rgba(24,18,10,0.08)]"><h3 className="font-extrabold text-aodi-violet-950">{track.title}</h3>{track.artist ? <p className="text-sm text-aodi-violet-700/75">{track.artist}</p> : null}</article>)}</div> : null}</section>;
+  return (
+    <section id="musique" className="space-y-4 scroll-mt-24">
+      <SectionTitle title={heading} />
+      <FeaturedTrack track={featured} />
+      {others.length > 0 ? <ManualTrackList tracks={others} /> : null}
+      {youtubeChannel ? <YouTubeChannelLink channel={youtubeChannel} label="Voir la chaine YouTube" /> : null}
+    </section>
+  );
 }
 
 function EventSection({ events, title, profileType }: { events: PublicProfileEvent[]; title?: string | null; profileType: ProfileType }) {
@@ -154,7 +263,7 @@ function AboutSection({ bio, title }: { bio: string | null; title?: string | nul
   return <section id="apropos" className="px-4 sm:px-7"><div className="rounded-lg bg-white p-5 shadow-[0_12px_26px_rgba(24,18,10,0.08)]"><h2 className="font-display text-3xl font-bold text-aodi-violet-950">{title || "A propos"}</h2><span className="mt-3 block h-0.5 w-16 bg-aodi-gold" /><p className="mt-5 whitespace-pre-line text-base leading-relaxed text-aodi-violet-950/80">{bio}</p></div></section>;
 }
 
-export function ProfileContentSections({ slug, bio, products, services, projects, galleryItems, customLinks, musicTracks, events, sections, profileType }: { slug: string; bio: string | null; products: PublicProduct[]; services: PublicService[]; projects: PublicProject[]; galleryItems: PublicGalleryItem[]; customLinks: PublicCustomLink[]; musicTracks: PublicMusicTrack[]; events: PublicProfileEvent[]; sections: PublicProfileSection[]; profileType: ProfileType }) {
+export function ProfileContentSections({ slug, bio, products, services, projects, galleryItems, customLinks, musicTracks, youtubeVideos, youtubeChannel, events, sections, profileType }: { slug: string; bio: string | null; products: PublicProduct[]; services: PublicService[]; projects: PublicProject[]; galleryItems: PublicGalleryItem[]; customLinks: PublicCustomLink[]; musicTracks: PublicMusicTrack[]; youtubeVideos: PublicYouTubeVideo[]; youtubeChannel: PublicYouTubeChannel | null; events: PublicProfileEvent[]; sections: PublicProfileSection[]; profileType: ProfileType }) {
   const renderers: Record<ProfileSectionType, (section: PublicProfileSection) => React.ReactNode> = {
     SOCIALS: () => null,
     CONTACT: () => null,
@@ -164,7 +273,7 @@ export function ProfileContentSections({ slug, bio, products, services, projects
     PROJECTS: (section) => <ProjectSection projects={projects} title={section.title} profileType={profileType} />,
     GALLERY: (section) => <GallerySection items={galleryItems} title={section.title} profileType={profileType} />,
     CUSTOM_LINKS: (section) => <LinkSection links={customLinks} title={section.title} profileType={profileType} />,
-    MUSIC: (section) => <MusicSection tracks={musicTracks} title={section.title} profileType={profileType} />,
+    MUSIC: (section) => <MusicSection tracks={musicTracks} youtubeVideos={youtubeVideos} youtubeChannel={youtubeChannel} title={section.title} profileType={profileType} />,
     EVENTS: (section) => <EventSection events={events} title={section.title} profileType={profileType} />,
     STATS: () => null,
     ABOUT: (section) => <AboutSection bio={bio} title={section.title} />,

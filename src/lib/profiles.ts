@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getYouTubeFeed, readYouTubeChannelConfig } from "@/lib/youtube";
 import type {
   ProfileLookup,
   ProfileSectionType,
@@ -7,6 +8,8 @@ import type {
   PublicGalleryItem,
   PublicMusicTrack,
   PublicProduct,
+  PublicYouTubeChannel,
+  PublicYouTubeVideo,
   PublicProfile,
   PublicProfileEvent,
   PublicProfileSection,
@@ -56,6 +59,8 @@ type ProfileModules = {
   customLinks: PublicCustomLink[];
   stats: PublicProfileStat[];
   musicTracks: PublicMusicTrack[];
+  youtubeVideos: PublicYouTubeVideo[];
+  youtubeChannel: PublicYouTubeChannel | null;
   events: PublicProfileEvent[];
   sections: PublicProfileSection[];
 };
@@ -226,6 +231,24 @@ async function getEvents(profileId: string): Promise<PublicProfileEvent[]> {
   `;
 }
 
+// Dernieres videos YouTube (profils MUSIC uniquement). Resultat en cache serveur ~30 min, jamais d'erreur :
+// si YouTube est indisponible, la section retombe sur les MusicTrack manuels.
+async function getYouTubeModule(profileType: ProfileType, configuredSections: PublicProfileSection[]): Promise<Pick<ProfileModules, "youtubeVideos" | "youtubeChannel">> {
+  const musicSection = configuredSections.find((section) => section.type === "MUSIC" && section.enabled);
+  const config = readYouTubeChannelConfig(musicSection?.config ?? null);
+  if (profileType !== "MUSIC" || !config.youtubeChannelUrl) return { youtubeVideos: [], youtubeChannel: null };
+
+  const feed = await getYouTubeFeed(config);
+  return {
+    youtubeVideos: feed?.videos ?? [],
+    youtubeChannel: {
+      url: feed?.channel.url ?? config.youtubeChannelUrl,
+      title: feed?.channel.title ?? config.youtubeChannelTitle,
+      handle: feed?.channel.handle ?? config.youtubeHandle,
+    },
+  };
+}
+
 function normalizeProfileType(value: string | null): ProfileType {
   return PROFILE_TYPES.includes(value as ProfileType) ? (value as ProfileType) : "GENERAL";
 }
@@ -255,7 +278,7 @@ function sectionHasContent(type: ProfileSectionType, profile: ProfileRow, module
     case "CUSTOM_LINKS":
       return modules.customLinks.length > 0;
     case "MUSIC":
-      return modules.musicTracks.length > 0;
+      return modules.musicTracks.length > 0 || modules.youtubeVideos.length > 0;
     case "EVENTS":
       return modules.events.length > 0;
     case "STATS":
@@ -286,8 +309,14 @@ function buildFallbackSections(profile: ProfileRow, modules: Omit<ProfileModules
     .filter((section) => sectionHasContent(section.type, profile, modules));
 }
 
+// Les types sans ligne ProfileSection gardent leur comportement par defaut : une configuration partielle
+// (ex. seule la ligne MUSIC creee par la chaine YouTube) ne masque pas les autres sections.
 function buildSections(profile: ProfileRow, modules: Omit<ProfileModules, "sections">, configuredSections: PublicProfileSection[]) {
-  const source = configuredSections.length > 0 ? configuredSections.filter((section) => section.enabled) : buildFallbackSections(profile, modules);
+  const configuredTypes = new Set(configuredSections.map((section) => section.type));
+  const source = [
+    ...configuredSections.filter((section) => section.enabled),
+    ...buildFallbackSections(profile, modules).filter((section) => !configuredTypes.has(section.type)),
+  ];
   return source
     .filter((section) => sectionHasContent(section.type, profile, modules))
     .sort((a, b) => a.sortOrder - b.sortOrder);
@@ -330,6 +359,8 @@ function toPublicProfile(profile: ProfileRow, modules: ProfileModules): PublicPr
     sections: modules.sections,
     stats: modules.stats,
     musicTracks: modules.musicTracks,
+    youtubeVideos: modules.youtubeVideos,
+    youtubeChannel: modules.youtubeChannel,
     events: modules.events,
   };
 }
@@ -353,7 +384,8 @@ export async function lookupProfileBySlug(slug: string): Promise<ProfileLookup> 
     getConfiguredSections(profile.id),
   ]);
 
-  const moduleData = { products, services, projects, galleryItems, customLinks, stats, musicTracks, events };
+  const { youtubeVideos, youtubeChannel } = await getYouTubeModule(normalizeProfileType(profile.profileType), configuredSections);
+  const moduleData = { products, services, projects, galleryItems, customLinks, stats, musicTracks, youtubeVideos, youtubeChannel, events };
   const sections = buildSections(profile, moduleData, configuredSections);
 
   return { status: "found", profile: toPublicProfile(profile, { ...moduleData, sections }) };

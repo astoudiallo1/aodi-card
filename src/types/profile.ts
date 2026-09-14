@@ -89,6 +89,20 @@ export type PublicProfileStat = {
   icon: string | null;
 };
 
+export type PublicYouTubeVideo = {
+  videoId: string;
+  title: string;
+  thumbnail: string;
+  publishedAt: string;
+  url: string;
+};
+
+export type PublicYouTubeChannel = {
+  url: string;
+  title: string | null;
+  handle: string | null;
+};
+
 export type PublicMusicTrack = {
   id: string;
   title: string;
@@ -150,6 +164,8 @@ export type PublicProfile = {
   sections: PublicProfileSection[];
   stats: PublicProfileStat[];
   musicTracks: PublicMusicTrack[];
+  youtubeVideos: PublicYouTubeVideo[];
+  youtubeChannel: PublicYouTubeChannel | null;
   events: PublicProfileEvent[];
 };
 
