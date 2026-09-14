@@ -26,6 +26,19 @@ function shortBio(profile: PublicProfile) {
   return profile.tagline || profile.bio?.split(/[.!?]/)[0]?.trim() || null;
 }
 
+function validExternalUrl(value: string | null) {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function musicFinalCtaHref(profile: PublicProfile) {
+  return validExternalUrl(profile.tiktok) || profile.finalCtaUrl || null;
+}
 function positionClass(position: string) {
   const positions: Record<string, string> = { top: "object-top", bottom: "object-bottom", left: "object-left", right: "object-right", center: "object-center" };
   return positions[position] ?? "object-center";
@@ -147,15 +160,15 @@ export function ProfileCard({ profile }: { profile: PublicProfile }) {
   const hasHeroVisual = Boolean((!isMusic && heroPhoto) || profile.stats.length > 0);
   const tags = profile.tags.length > 0 ? profile.tags : [profile.jobTitle, profile.company].filter(Boolean).slice(0, 3) as string[];
   const menuItems = mobileMenuItems(profile);
-  const finalCtaHref = profile.finalCtaUrl || profile.appointmentUrl || (contact === "#contact" ? null : contact);
+  const finalCtaHref = isMusic ? musicFinalCtaHref(profile) : profile.finalCtaUrl || profile.appointmentUrl || (contact === "#contact" ? null : contact);
   const finalCtaLabel = profile.finalCtaLabel || (profile.profileType === "COMMERCE" ? "Commander maintenant" : profile.profileType === "MUSIC" ? "Ecouter maintenant" : profile.profileType === "CRAFT" ? "Demander un devis" : "Construisons ensemble");
   const heroMinHeight = isMusic ? "min-h-[590px] md:min-h-[690px]" : hasHeroVisual ? "min-h-[760px] md:min-h-[690px]" : "min-h-[560px] md:min-h-[560px]";
 
   return (
     <article className={`relative mx-auto min-h-dvh w-full max-w-7xl overflow-hidden ${visual.surface} pb-24 shadow-card md:min-h-0 md:rounded-[1.5rem]`}>
       <header className={`relative overflow-hidden bg-gradient-to-br ${visual.gradient} text-white ${heroMinHeight}`}>
-        {coverPhoto ? <img src={coverPhoto} alt="" aria-hidden className={`absolute inset-0 h-full w-full object-cover ${positionClass(profile.coverImagePosition)} ${isMusic ? "opacity-70" : "opacity-55 mix-blend-screen"}`} /> : <div className="absolute inset-0 public-bogolan-cover opacity-35" />}
-        <div className={isMusic ? "absolute inset-0 bg-gradient-to-b from-black/70 via-black/45 to-black/85 md:bg-gradient-to-r md:from-black/80 md:via-black/35 md:to-black/20" : "absolute inset-0 bg-gradient-to-b from-black/45 via-black/35 to-black/75 md:bg-gradient-to-r md:from-black/80 md:via-black/35 md:to-black/20"} />
+        {coverPhoto ? <img src={coverPhoto} alt="" aria-hidden className={`absolute inset-0 h-full w-full object-cover ${positionClass(profile.coverImagePosition)} ${isMusic ? "opacity-100 md:opacity-70" : "opacity-55 mix-blend-screen"}`} /> : <div className="absolute inset-0 public-bogolan-cover opacity-35" />}
+        <div className={isMusic ? "absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.04)_0%,rgba(0,0,0,0.02)_40%,rgba(0,0,0,0.28)_68%,rgba(0,0,0,0.62)_100%)] md:bg-gradient-to-r md:from-black/80 md:via-black/35 md:to-black/20" : "absolute inset-0 bg-gradient-to-b from-black/45 via-black/35 to-black/75 md:bg-gradient-to-r md:from-black/80 md:via-black/35 md:to-black/20"} />
         <div className={`relative z-10 flex flex-col px-5 sm:px-9 ${isMusic ? "min-h-[590px] pb-5 pt-4 md:min-h-[690px] md:pb-7 md:pt-5" : hasHeroVisual ? "min-h-[760px] pb-7 pt-5 md:min-h-[690px]" : "min-h-[560px] pb-7 pt-5 md:min-h-[560px]"}`}>
           <div className="flex items-start justify-between gap-4">
             <AodiOfficialLogo className="w-[150px] max-w-[46vw]" />
