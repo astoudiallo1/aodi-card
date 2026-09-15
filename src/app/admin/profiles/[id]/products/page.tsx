@@ -21,7 +21,7 @@ export default async function AdminProfileProductsPage({ params }: PageProps) {
   return (
     <div>
       <AdminHeader eyebrow="Boutique" title={profile.displayName} description={`Produits affiches sur /${profile.slug}.`} action={{ href: `/admin/profiles/${profile.id}/products/new`, label: "Ajouter un produit" }} />
-      <ProfileContentNav profileId={profile.id} active="Boutique" />
+      <ProfileContentNav profileId={profile.id} active="products" />
       <section className="mt-6 overflow-hidden rounded-lg border border-aodi-violet-100 bg-[#FBF8F1]/90 shadow-sm">
         {products.length === 0 ? (
           <div className="p-6"><p className="text-sm text-aodi-violet-700/70">Aucun produit pour ce profil.</p><Link href={`/admin/profiles/${profile.id}/products/new`} className="mt-4 inline-flex rounded-lg bg-aodi-violet-900 px-4 py-2 text-sm font-semibold text-white">Ajouter le premier produit</Link></div>

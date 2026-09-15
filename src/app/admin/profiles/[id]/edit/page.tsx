@@ -53,7 +53,7 @@ export default async function EditProfilePage({ params }: EditProfilePageProps) 
         title={profile.displayName}
         description={`Slug stable : /${profile.slug}. Il ne sera pas modifie automatiquement.`}
       />
-      <ProfileContentNav profileId={profile.id} active="Informations" />
+      <ProfileContentNav profileId={profile.id} active="informations" />
       <ProfileForm
         action={updateProfileAction.bind(null, profile.id)}
         submitLabel="Enregistrer les modifications"

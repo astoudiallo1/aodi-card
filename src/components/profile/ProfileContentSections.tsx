@@ -18,9 +18,9 @@ function orderHref(product: PublicProduct) {
 function sectionLabel(type: ProfileSectionType, profileType: ProfileType, title?: string | null) {
   if (title) return title;
   if (type === "PRODUCTS") return profileType === "COMMERCE" ? "Nos collections" : "Boutique";
-  if (type === "PROJECTS") return profileType === "CRAFT" || profileType === "TECH" || profileType === "ACTOR_CREATOR" ? "Mes realisations" : "Projets recents";
+  if (type === "PROJECTS") return profileType === "ARCHITECTURE" || profileType === "CRAFT" || profileType === "ACTOR_CREATOR" ? "Mes realisations" : "Projets recents";
   if (type === "MUSIC") return "Dernieres sorties";
-  if (type === "EVENTS") return profileType === "MUSIC" ? "Prochains evenements" : "Actualites";
+  if (type === "EVENTS") return profileType === "MUSIC" || profileType === "ACTOR_CREATOR" ? "Prochains evenements" : profileType === "COMMERCE" ? "Promotions" : "Actualites";
   if (type === "SERVICES") return "Mes services";
   if (type === "GALLERY") return "Galerie";
   if (type === "CUSTOM_LINKS") return "Liens utiles";
@@ -28,11 +28,20 @@ function sectionLabel(type: ProfileSectionType, profileType: ProfileType, title?
   return "A propos";
 }
 
+/**
+ * Socle responsive commun a tous les types : sur mobile, plusieurs apercus compacts par section
+ * (grille 2 colonnes ou carrousel horizontal a defilement), jamais une seule carte plein ecran.
+ * Le contenu et le style restent propres a chaque metier.
+ */
+const COMPACT_GRID = "grid grid-cols-2 gap-3 px-4 sm:px-7 md:gap-4";
+const SCROLLER = "flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 pb-3 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:scroll-px-7 sm:px-7 md:grid md:gap-4 md:overflow-visible md:pb-0";
+const SCROLLER_CARD = "w-[64vw] max-w-[260px] shrink-0 snap-start md:w-auto md:max-w-none";
+
 function SectionTitle({ title, actionHref, actionLabel }: { title: string; actionHref?: string; actionLabel?: string }) {
   return (
     <div className="flex items-end justify-between gap-4 px-4 sm:px-7">
       <div className="min-w-0">
-        <h2 className="break-words font-display text-3xl font-bold leading-none text-aodi-violet-950 sm:text-4xl">{title}</h2>
+        <h2 className="break-words font-display text-[1.75rem] font-bold leading-none text-aodi-violet-950 sm:text-4xl">{title}</h2>
         <span className="mt-3 block h-0.5 w-16 bg-aodi-gold" />
       </div>
       {actionHref ? <a href={actionHref} className="hidden shrink-0 items-center gap-2 text-sm font-bold text-aodi-violet-950 sm:inline-flex">{actionLabel ?? "Voir tout"} <FaExternalLinkAlt className="h-3 w-3" /></a> : null}
@@ -41,8 +50,8 @@ function SectionTitle({ title, actionHref, actionLabel }: { title: string; actio
 }
 
 function ProductImage({ product }: { product: PublicProduct }) {
-  if (product.imageUrl) return <img src={product.imageUrl} alt={product.name} className="h-48 w-full object-cover" />;
-  return <div className="flex h-44 items-center justify-center bg-[#F5EAD8] text-aodi-violet-900/45"><FaStore className="h-9 w-9" /></div>;
+  if (product.imageUrl) return <img src={product.imageUrl} alt={product.name} loading="lazy" className="aspect-[4/3] w-full object-cover md:aspect-auto md:h-48" />;
+  return <div className="flex aspect-[4/3] items-center justify-center bg-[#F5EAD8] text-aodi-violet-900/45 md:aspect-auto md:h-44"><FaStore className="h-9 w-9" /></div>;
 }
 
 function ProductSection({ products, title, slug, profileType }: { products: PublicProduct[]; title?: string | null; slug: string; profileType: ProfileType }) {
@@ -50,20 +59,20 @@ function ProductSection({ products, title, slug, profileType }: { products: Publ
   return (
     <section id="boutique" className="space-y-4 scroll-mt-24">
       <SectionTitle title={sectionLabel("PRODUCTS", profileType, title)} actionHref={`/${slug}/boutique`} actionLabel="Voir toute la boutique" />
-      <div className="grid gap-4 px-4 sm:px-7 md:grid-cols-3 lg:grid-cols-4">
+      <div className={`${COMPACT_GRID} md:grid-cols-3 lg:grid-cols-4`}>
         {products.slice(0, 4).map((product) => {
           const href = product.isAvailable ? orderHref(product) : null;
           return (
-            <article key={product.id} className="overflow-hidden rounded-lg border border-black/5 bg-white shadow-[0_14px_30px_rgba(24,18,10,0.09)]">
+            <article key={product.id} className="flex flex-col overflow-hidden rounded-lg border border-black/5 bg-white shadow-[0_14px_30px_rgba(24,18,10,0.09)]">
               <ProductImage product={product} />
-              <div className="p-4">
-                <h3 className="line-clamp-2 min-h-[2.6rem] text-sm font-extrabold leading-snug text-aodi-violet-950">{product.name}</h3>
-                {product.description ? <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-aodi-violet-950/70">{product.description}</p> : null}
-                <div className="mt-3 flex flex-wrap items-end gap-2">
-                  {product.oldPrice ? <span className="text-xs font-semibold text-aodi-violet-700/45 line-through">{money(product.oldPrice, product.currency)}</span> : null}
-                  <span className="text-lg font-black text-aodi-gold-dark">{money(product.price, product.currency)}</span>
+              <div className="flex flex-1 flex-col p-3 md:p-4">
+                <h3 className="line-clamp-2 min-h-[2.2rem] text-[0.8rem] font-extrabold leading-snug text-aodi-violet-950 md:min-h-[2.6rem] md:text-sm">{product.name}</h3>
+                {product.description ? <p className="mt-1.5 line-clamp-2 text-[0.7rem] leading-relaxed text-aodi-violet-950/70 md:mt-2 md:text-xs">{product.description}</p> : null}
+                <div className="mt-2 flex flex-wrap items-end gap-x-2 gap-y-0.5 md:mt-3">
+                  {product.oldPrice ? <span className="text-[0.68rem] font-semibold text-aodi-violet-700/45 line-through md:text-xs">{money(product.oldPrice, product.currency)}</span> : null}
+                  <span className="text-sm font-black text-aodi-gold-dark md:text-lg">{money(product.price, product.currency)}</span>
                 </div>
-                {href ? <a href={href} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex w-full items-center justify-center rounded-lg bg-aodi-violet-950 px-4 py-3 text-xs font-extrabold text-white">Commander</a> : <p className="mt-4 rounded-lg bg-aodi-violet-100 px-4 py-3 text-center text-xs font-bold text-aodi-violet-700">Indisponible</p>}
+                {href ? <a href={href} target="_blank" rel="noopener noreferrer" className="mt-auto inline-flex w-full items-center justify-center rounded-lg bg-aodi-violet-950 px-3 py-2.5 text-[0.7rem] font-extrabold text-white md:mt-4 md:px-4 md:py-3 md:text-xs">Commander</a> : <p className="mt-auto rounded-lg bg-aodi-violet-100 px-3 py-2.5 text-center text-[0.7rem] font-bold text-aodi-violet-700 md:mt-4 md:px-4 md:py-3 md:text-xs">Indisponible</p>}
               </div>
             </article>
           );
@@ -78,14 +87,14 @@ function ServiceSection({ services, title, profileType }: { services: PublicServ
   return (
     <section id="services" className="space-y-4 scroll-mt-24">
       <SectionTitle title={sectionLabel("SERVICES", profileType, title)} actionHref="#services" actionLabel="Voir tous les services" />
-      <div className="grid gap-4 px-4 sm:px-7 md:grid-cols-4">
+      <div className={`${COMPACT_GRID} md:grid-cols-4`}>
         {services.slice(0, 4).map((service) => (
-          <article key={service.id} className="rounded-lg border border-black/5 bg-white p-4 shadow-[0_14px_30px_rgba(24,18,10,0.08)]">
-            {service.imageUrl ? <img src={service.imageUrl} alt={service.name} className="mb-4 h-28 w-full rounded-lg object-cover" /> : <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-lg bg-[#FBF3E5] text-aodi-violet-950"><FaTools className="h-7 w-7" /></span>}
-            <h3 className="text-sm font-extrabold leading-snug text-aodi-violet-950">{service.name}</h3>
-            {service.description ? <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-aodi-violet-950/70">{service.description}</p> : null}
-            {service.price !== null ? <p className="mt-3 text-sm font-extrabold text-aodi-gold-dark">{money(service.price, service.currency ?? "FCFA")}</p> : null}
-            {service.ctaUrl ? <a href={service.ctaUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex text-xs font-extrabold text-aodi-violet-950">{service.ctaLabel || "En savoir plus"}</a> : null}
+          <article key={service.id} className="rounded-lg border border-black/5 bg-white p-3 shadow-[0_14px_30px_rgba(24,18,10,0.08)] md:p-4">
+            {service.imageUrl ? <img src={service.imageUrl} alt={service.name} loading="lazy" className="mb-3 h-20 w-full rounded-lg object-cover md:mb-4 md:h-28" /> : <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-[#FBF3E5] text-aodi-violet-950 md:mb-4 md:h-14 md:w-14"><FaTools className="h-5 w-5 md:h-7 md:w-7" /></span>}
+            <h3 className="line-clamp-2 text-[0.8rem] font-extrabold leading-snug text-aodi-violet-950 md:text-sm">{service.name}</h3>
+            {service.description ? <p className="mt-1.5 line-clamp-2 text-[0.7rem] leading-relaxed text-aodi-violet-950/70 md:mt-2 md:line-clamp-3 md:text-xs">{service.description}</p> : null}
+            {service.price !== null ? <p className="mt-2 text-[0.8rem] font-extrabold text-aodi-gold-dark md:mt-3 md:text-sm">{money(service.price, service.currency ?? "FCFA")}</p> : null}
+            {service.ctaUrl ? <a href={service.ctaUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex text-[0.7rem] font-extrabold text-aodi-violet-950 md:mt-3 md:text-xs">{service.ctaLabel || "En savoir plus"}</a> : null}
           </article>
         ))}
       </div>
@@ -98,15 +107,15 @@ function ProjectSection({ projects, title, profileType }: { projects: PublicProj
   return (
     <section id="projets" className="space-y-4 scroll-mt-24">
       <SectionTitle title={sectionLabel("PROJECTS", profileType, title)} actionHref="#projets" actionLabel="Voir tous les projets" />
-      <div className="grid gap-4 px-4 sm:px-7 md:grid-cols-4">
+      <div className={`${SCROLLER} md:grid-cols-4`}>
         {projects.slice(0, 4).map((project) => (
-          <article key={project.id} className="overflow-hidden rounded-lg border border-black/5 bg-white shadow-[0_14px_30px_rgba(24,18,10,0.09)]">
-            {project.imageUrl ? <img src={project.imageUrl} alt={project.title} className="h-36 w-full object-cover" /> : <div className="h-28 bg-[#F5EAD8]" />}
-            <div className="p-4">
-              <h3 className="line-clamp-2 text-sm font-extrabold leading-snug text-aodi-violet-950">{project.title}</h3>
-              {project.technologies ? <span className="mt-3 inline-flex rounded-full bg-[#F9E6BF] px-3 py-1 text-[0.68rem] font-bold text-aodi-violet-950">{project.technologies}</span> : null}
-              {project.description ? <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-aodi-violet-950/70">{project.description}</p> : null}
-              <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
+          <article key={project.id} className={`${SCROLLER_CARD} overflow-hidden rounded-lg border border-black/5 bg-white shadow-[0_14px_30px_rgba(24,18,10,0.09)]`}>
+            {project.imageUrl ? <img src={project.imageUrl} alt={project.title} loading="lazy" className="aspect-[4/3] w-full object-cover md:aspect-auto md:h-36" /> : <div className="aspect-[4/3] bg-[#F5EAD8] md:aspect-auto md:h-28" />}
+            <div className="p-3 md:p-4">
+              <h3 className="line-clamp-2 text-[0.8rem] font-extrabold leading-snug text-aodi-violet-950 md:text-sm">{project.title}</h3>
+              {project.technologies ? <span className="mt-2 inline-flex max-w-full truncate rounded-full bg-[#F9E6BF] px-3 py-1 text-[0.66rem] font-bold text-aodi-violet-950 md:mt-3 md:text-[0.68rem]">{project.technologies}</span> : null}
+              {project.description ? <p className="mt-1.5 line-clamp-2 text-[0.7rem] leading-relaxed text-aodi-violet-950/70 md:mt-2 md:text-xs">{project.description}</p> : null}
+              <div className="mt-2 flex flex-wrap gap-2 text-[0.7rem] font-bold md:mt-3 md:text-xs">
                 {project.websiteUrl ? <a href={project.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-aodi-violet-950">Voir</a> : null}
                 {project.appUrl ? <a href={project.appUrl} target="_blank" rel="noopener noreferrer" className="text-aodi-gold-dark">App</a> : null}
                 {project.githubUrl ? <a href={project.githubUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-aodi-violet-700"><FaGithub /> GitHub</a> : null}
@@ -124,9 +133,9 @@ function GallerySection({ items, title, profileType }: { items: PublicGalleryIte
   return (
     <section id="galerie" className="space-y-4 scroll-mt-24">
       <SectionTitle title={sectionLabel("GALLERY", profileType, title)} actionHref="#galerie" actionLabel="Voir toute la galerie" />
-      <div className="grid grid-cols-2 gap-3 px-4 sm:px-7 md:grid-cols-5">
-        {items.slice(0, 5).map((item) => <img key={item.id} src={item.imageUrl} alt={item.title || item.description || "Galerie"} className="aspect-[4/3] w-full rounded-lg object-cover shadow-[0_10px_22px_rgba(24,18,10,0.08)]" />)}
-        {items.length > 5 ? <a href="#galerie" className="flex aspect-[4/3] items-center justify-center rounded-lg bg-white text-center text-sm font-bold text-aodi-violet-950 shadow-[0_10px_22px_rgba(24,18,10,0.08)]"><span><FaImages className="mx-auto mb-2 h-7 w-7" />Voir plus<br />de photos</span></a> : null}
+      <div className="grid grid-cols-3 gap-2 px-4 sm:px-7 md:grid-cols-5 md:gap-3">
+        {items.slice(0, 5).map((item) => <img key={item.id} src={item.imageUrl} alt={item.title || item.description || "Galerie"} loading="lazy" className="aspect-square w-full rounded-lg object-cover shadow-[0_10px_22px_rgba(24,18,10,0.08)] md:aspect-[4/3]" />)}
+        {items.length > 5 ? <a href="#galerie" className="flex aspect-square items-center justify-center rounded-lg bg-white text-center text-[0.7rem] font-bold text-aodi-violet-950 shadow-[0_10px_22px_rgba(24,18,10,0.08)] md:aspect-[4/3] md:text-sm"><span><FaImages className="mx-auto mb-1.5 h-5 w-5 md:mb-2 md:h-7 md:w-7" />Voir plus<br />de photos</span></a> : null}
       </div>
     </section>
   );
@@ -134,7 +143,7 @@ function GallerySection({ items, title, profileType }: { items: PublicGalleryIte
 
 function LinkSection({ links, title, profileType }: { links: PublicCustomLink[]; title?: string | null; profileType: ProfileType }) {
   if (links.length === 0) return null;
-  return <section id="liens" className="space-y-4 scroll-mt-24"><SectionTitle title={sectionLabel("CUSTOM_LINKS", profileType, title)} /><div className="grid gap-3 px-4 sm:px-7 md:grid-cols-2">{links.map((link) => <a key={link.id} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between gap-4 rounded-lg border border-black/5 bg-white px-4 py-4 text-sm font-bold text-aodi-violet-950 shadow-[0_10px_22px_rgba(24,18,10,0.08)]"><span>{link.icon ? `${link.icon} ` : ""}{link.label}</span><FaExternalLinkAlt className="h-4 w-4 shrink-0 text-aodi-gold-dark" /></a>)}</div></section>;
+  return <section id="liens" className="space-y-4 scroll-mt-24"><SectionTitle title={sectionLabel("CUSTOM_LINKS", profileType, title)} /><div className="grid gap-2.5 px-4 sm:px-7 min-[430px]:grid-cols-2 md:gap-3">{links.map((link) => <a key={link.id} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between gap-3 rounded-lg border border-black/5 bg-white px-3.5 py-3 text-[0.8rem] font-bold text-aodi-violet-950 shadow-[0_10px_22px_rgba(24,18,10,0.08)] md:px-4 md:py-4 md:text-sm"><span className="min-w-0 truncate">{link.icon ? `${link.icon} ` : ""}{link.label}</span><FaExternalLinkAlt className="h-4 w-4 shrink-0 text-aodi-gold-dark" /></a>)}</div></section>;
 }
 
 function formatVideoDate(value: string) {
@@ -255,12 +264,32 @@ function MusicSection({ tracks, youtubeVideos, youtubeChannel, title, profileTyp
 
 function EventSection({ events, title, profileType }: { events: PublicProfileEvent[]; title?: string | null; profileType: ProfileType }) {
   if (events.length === 0) return null;
-  return <section id="evenements" className="space-y-4 scroll-mt-24"><SectionTitle title={sectionLabel("EVENTS", profileType, title)} /><div className="grid gap-3 px-4 sm:px-7 md:grid-cols-2">{events.map((event) => <article key={event.id} className="overflow-hidden rounded-lg bg-white shadow-[0_10px_22px_rgba(24,18,10,0.08)]">{event.imageUrl ? <img src={event.imageUrl} alt={event.title} loading="lazy" className="aspect-[4/3] w-full bg-aodi-violet-950 object-contain" /> : null}<div className="grid grid-cols-[72px_1fr] gap-4 p-4"><div className="self-start rounded-lg bg-aodi-violet-950 px-3 py-3 text-center text-white"><p className="text-xs font-bold uppercase text-aodi-gold">{new Intl.DateTimeFormat("fr-FR", { month: "short" }).format(event.startDate)}</p><p className="text-2xl font-extrabold">{new Intl.DateTimeFormat("fr-FR", { day: "2-digit" }).format(event.startDate)}</p></div><div><h3 className="font-extrabold text-aodi-violet-950">{event.title}</h3>{event.location ? <p className="mt-1 text-sm font-semibold text-aodi-gold-dark">{event.location}</p> : null}{event.description ? <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-aodi-violet-950/75">{event.description}</p> : null}{event.externalUrl ? <a href={event.externalUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex text-sm font-extrabold text-aodi-violet-900">Reserver</a> : null}</div></div></article>)}</div></section>;
+  return (
+    <section id="evenements" className="space-y-4 scroll-mt-24">
+      <SectionTitle title={sectionLabel("EVENTS", profileType, title)} />
+      <div className={`${SCROLLER} md:grid-cols-2`}>
+        {events.map((event) => (
+          <article key={event.id} className="w-[76vw] max-w-[320px] shrink-0 snap-start overflow-hidden rounded-lg bg-white shadow-[0_10px_22px_rgba(24,18,10,0.08)] md:w-auto md:max-w-none">
+            {event.imageUrl ? <img src={event.imageUrl} alt={event.title} loading="lazy" className="aspect-[16/9] w-full bg-aodi-violet-950 object-cover md:aspect-[4/3] md:object-contain" /> : null}
+            <div className="grid grid-cols-[56px_1fr] gap-3 p-3 md:grid-cols-[72px_1fr] md:gap-4 md:p-4">
+              <div className="self-start rounded-lg bg-aodi-violet-950 px-2 py-2 text-center text-white md:px-3 md:py-3"><p className="text-[0.66rem] font-bold uppercase text-aodi-gold md:text-xs">{new Intl.DateTimeFormat("fr-FR", { month: "short" }).format(event.startDate)}</p><p className="text-xl font-extrabold md:text-2xl">{new Intl.DateTimeFormat("fr-FR", { day: "2-digit" }).format(event.startDate)}</p></div>
+              <div className="min-w-0">
+                <h3 className="line-clamp-2 text-sm font-extrabold leading-snug text-aodi-violet-950 md:text-base">{event.title}</h3>
+                {event.location ? <p className="mt-1 truncate text-xs font-semibold text-aodi-gold-dark md:text-sm">{event.location}</p> : null}
+                {event.description ? <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-aodi-violet-950/75 md:mt-2 md:text-sm">{event.description}</p> : null}
+                {event.externalUrl ? <a href={event.externalUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex text-xs font-extrabold text-aodi-violet-900 md:mt-3 md:text-sm">Reserver</a> : null}
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 function AboutSection({ bio, title }: { bio: string | null; title?: string | null }) {
   if (!bio) return null;
-  return <section id="apropos" className="px-4 sm:px-7"><div className="rounded-lg bg-white p-5 shadow-[0_12px_26px_rgba(24,18,10,0.08)]"><h2 className="font-display text-3xl font-bold text-aodi-violet-950">{title || "A propos"}</h2><span className="mt-3 block h-0.5 w-16 bg-aodi-gold" /><p className="mt-5 whitespace-pre-line text-base leading-relaxed text-aodi-violet-950/80">{bio}</p></div></section>;
+  return <section id="apropos" className="px-4 scroll-mt-24 sm:px-7"><div className="rounded-lg bg-white p-4 shadow-[0_12px_26px_rgba(24,18,10,0.08)] md:p-5"><h2 className="font-display text-[1.75rem] font-bold text-aodi-violet-950 md:text-3xl">{title || "A propos"}</h2><span className="mt-3 block h-0.5 w-16 bg-aodi-gold" /><p className="mt-4 whitespace-pre-line text-[0.95rem] leading-relaxed text-aodi-violet-950/80 md:mt-5 md:text-base">{bio}</p></div></section>;
 }
 
 export function ProfileContentSections({ slug, bio, products, services, projects, galleryItems, customLinks, musicTracks, youtubeVideos, youtubeChannel, events, sections, profileType }: { slug: string; bio: string | null; products: PublicProduct[]; services: PublicService[]; projects: PublicProject[]; galleryItems: PublicGalleryItem[]; customLinks: PublicCustomLink[]; musicTracks: PublicMusicTrack[]; youtubeVideos: PublicYouTubeVideo[]; youtubeChannel: PublicYouTubeChannel | null; events: PublicProfileEvent[]; sections: PublicProfileSection[]; profileType: ProfileType }) {

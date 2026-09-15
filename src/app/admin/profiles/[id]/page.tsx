@@ -28,7 +28,7 @@ export default async function AdminProfilePage({ params }: AdminProfilePageProps
         action={{ href: `/admin/profiles/${profile.id}/edit`, label: "Modifier" }}
       />
 
-      <ProfileContentNav profileId={profile.id} active="Apercu" />
+      <ProfileContentNav profileId={profile.id} active="overview" />
 
       <div className="mt-8">
         <QrCodePanel displayName={profile.displayName} slug={profile.slug} publicUrl={publicUrl} photo={profile.profilePhoto} />

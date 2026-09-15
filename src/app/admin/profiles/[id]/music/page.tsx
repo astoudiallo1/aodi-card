@@ -89,7 +89,7 @@ export default async function AdminProfileMusicPage({ params, searchParams }: Pa
   return (
     <div>
       <AdminHeader eyebrow="Musique" title={profile.displayName} description={`Sorties musicales affichees sur /${profile.slug}.`} action={{ href: `/admin/profiles/${profile.id}/music/new`, label: "Ajouter une sortie" }} />
-      <ProfileContentNav profileId={profile.id} active="Musique" />
+      <ProfileContentNav profileId={profile.id} active="music" />
 
       {profile.profileType === "MUSIC" ? (
         <section className="mt-6 rounded-lg border border-aodi-violet-100 bg-[#FBF8F1]/90 p-5 shadow-sm">
