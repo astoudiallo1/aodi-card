@@ -2,16 +2,18 @@
 
 import { requireAdminAccess } from "@/lib/admin-auth";
 import { FormError } from "@/lib/form-error";
+import { parseFeaturedVideoUrls } from "@/lib/managed-artists";
 import { deleteMedia, uploadMedia, type MediaFolder } from "@/lib/media-storage";
 import { prisma } from "@/lib/prisma";
+import { getAvailableSectionTypes } from "@/lib/profile-module-state";
 import { ProfileType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-export type ContentKind = "products" | "services" | "projects" | "gallery" | "links" | "stats" | "music" | "events";
-type SectionType = "SOCIALS" | "CONTACT" | "SERVICES" | "PRODUCTS" | "PROJECTS" | "GALLERY" | "CUSTOM_LINKS" | "MUSIC" | "EVENTS" | "STATS" | "ABOUT" | "CTA";
+export type ContentKind = "products" | "services" | "projects" | "gallery" | "links" | "stats" | "music" | "events" | "videos" | "artists";
+type SectionType = "SOCIALS" | "CONTACT" | "SERVICES" | "PRODUCTS" | "PROJECTS" | "GALLERY" | "CUSTOM_LINKS" | "MUSIC" | "EVENTS" | "STATS" | "ABOUT" | "CTA" | "VIDEOS" | "ARTISTS";
 
-const SECTION_TYPES: SectionType[] = ["SOCIALS", "CONTACT", "SERVICES", "PRODUCTS", "PROJECTS", "GALLERY", "CUSTOM_LINKS", "MUSIC", "EVENTS", "STATS", "ABOUT", "CTA"];
+const SECTION_TYPES: SectionType[] = ["SOCIALS", "CONTACT", "SERVICES", "PRODUCTS", "PROJECTS", "GALLERY", "CUSTOM_LINKS", "MUSIC", "EVENTS", "STATS", "ABOUT", "CTA", "VIDEOS", "ARTISTS"];
 const PROFILE_TYPES = new Set<ProfileType>(Object.values(ProfileType));
 const IMAGE_POSITIONS = new Set(["center", "top", "bottom", "left", "right"]);
 
@@ -176,6 +178,8 @@ function revalidateProfile(profile: ProfileRef) {
   revalidatePath(`/admin/profiles/${profile.id}/links`);
   revalidatePath(`/admin/profiles/${profile.id}/stats`);
   revalidatePath(`/admin/profiles/${profile.id}/music`);
+  revalidatePath(`/admin/profiles/${profile.id}/videos`);
+  revalidatePath(`/admin/profiles/${profile.id}/artists`);
   revalidatePath(`/admin/profiles/${profile.id}/events`);
   revalidatePath(`/admin/profiles/${profile.id}/config`);
   revalidatePath(`/${profile.slug}`);
@@ -449,8 +453,11 @@ function sectionType(value: string): SectionType {
 
 export async function updateProfileSectionsAction(profileId: string, formData: FormData) {
   const profile = await requireProfile(profileId);
+  // Les sections absentes de l'enum PostgreSQL (migration pas encore appliquee) sont ignorees plutot que de faire echouer le CAST.
+  const available = await getAvailableSectionTypes();
 
   for (const rawType of SECTION_TYPES) {
+    if (!available.has(rawType)) continue;
     const type = sectionType(rawType);
     const enabled = checkbox(formData, `${type}.enabled`);
     const sortOrder = integer(formData, `${type}.sortOrder`);
@@ -596,6 +603,58 @@ export async function deleteEventAction(profileId: string, eventId: string) {
   const previous = await ensureEvent(profile.id, eventId);
   await prisma.profileEvent.delete({ where: { id: eventId } });
   await deleteMedia(previous.imageUrl);
+  revalidateProfile(profile);
+}
+
+async function ensureArtist(profileId: string, artistId: string) {
+  const item = await prisma.managedArtist.findUnique({ where: { id: artistId }, select: { id: true, profileId: true, photoUrl: true, isVisible: true } });
+  if (!item || item.profileId !== profileId) throw new FormError("Artiste introuvable pour ce profil.");
+  return item;
+}
+
+function artistData(formData: FormData) {
+  return {
+    name: requiredString(formData, "name", "Le nom de l'artiste"),
+    role: optionalString(formData, "role"),
+    description: optionalString(formData, "description"),
+    featuredVideoUrls: parseFeaturedVideoUrls(optionalString(formData, "featuredVideoUrls")),
+    sortOrder: integer(formData, "sortOrder"),
+  };
+}
+
+// Artistes accompagnes (module ARTISTS). La chaine YouTube de l'artiste se gere a part, via le panneau partage
+// (src/lib/youtube-admin.ts) : ces actions ne touchent jamais aux colonnes de chaine.
+export async function createArtistAction(profileId: string, formData: FormData) {
+  const profile = await requireProfile(profileId);
+  const image = await readImageIntent(formData, "image", "artists");
+  const artist = await persistWithImage(image, () => prisma.managedArtist.create({ data: { profileId: profile.id, ...artistData(formData), photoUrl: image.value ?? null, isVisible: checkbox(formData, "isVisible") }, select: { id: true } }));
+  revalidateProfile(profile);
+  // Redirection vers la fiche : la chaine YouTube de l'artiste se connecte a l'etape suivante.
+  redirect(`/admin/profiles/${profile.id}/artists/${artist.id}/edit?created=1`);
+}
+
+export async function updateArtistAction(profileId: string, artistId: string, formData: FormData) {
+  const profile = await requireProfile(profileId);
+  const previous = await ensureArtist(profile.id, artistId);
+  const image = await readImageIntent(formData, "image", "artists");
+  await persistWithImage(image, () => prisma.managedArtist.update({ where: { id: artistId }, data: { ...artistData(formData), ...(image.value !== undefined ? { photoUrl: image.value } : {}), isVisible: checkbox(formData, "isVisible") } }));
+  await deletePreviousImageIfNeeded(previous.photoUrl, image);
+  revalidateProfile(profile);
+  redirectTo(profile.id, "artists");
+}
+
+export async function deleteArtistAction(profileId: string, artistId: string) {
+  const profile = await requireProfile(profileId);
+  const previous = await ensureArtist(profile.id, artistId);
+  await prisma.managedArtist.delete({ where: { id: artistId } });
+  await deleteMedia(previous.photoUrl);
+  revalidateProfile(profile);
+}
+
+export async function toggleArtistVisibleAction(profileId: string, artistId: string) {
+  const profile = await requireProfile(profileId);
+  const item = await ensureArtist(profile.id, artistId);
+  await prisma.managedArtist.update({ where: { id: artistId }, data: { isVisible: !item.isVisible } });
   revalidateProfile(profile);
 }
 

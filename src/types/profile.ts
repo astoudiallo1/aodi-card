@@ -71,7 +71,9 @@ export type ProfileSectionType =
   | "EVENTS"
   | "STATS"
   | "ABOUT"
-  | "CTA";
+  | "CTA"
+  | "VIDEOS"
+  | "ARTISTS";
 
 export type PublicProfileSection = {
   id: string;
@@ -101,6 +103,16 @@ export type PublicYouTubeChannel = {
   url: string;
   title: string | null;
   handle: string | null;
+};
+
+export type PublicManagedArtist = {
+  id: string;
+  name: string;
+  role: string | null;
+  description: string | null;
+  photoUrl: string | null;
+  channel: PublicYouTubeChannel | null;
+  videos: PublicYouTubeVideo[];
 };
 
 export type PublicMusicTrack = {
@@ -166,6 +178,9 @@ export type PublicProfile = {
   musicTracks: PublicMusicTrack[];
   youtubeVideos: PublicYouTubeVideo[];
   youtubeChannel: PublicYouTubeChannel | null;
+  videos: PublicYouTubeVideo[];
+  videoChannel: PublicYouTubeChannel | null;
+  artists: PublicManagedArtist[];
   events: PublicProfileEvent[];
 };
 

@@ -8,7 +8,7 @@ import { hasContactActions, publicSectionNavItems } from "@/lib/profile-sections
 import { getProfilePublicUrl } from "@/lib/public-url";
 import { getWhatsAppHref } from "@/lib/social";
 import type { ProfileSectionType, ProfileType, PublicProfile } from "@/types/profile";
-import { FaArrowRight, FaBriefcase, FaCalendarAlt, FaEnvelope, FaHome, FaImages, FaLink, FaMusic, FaProjectDiagram, FaQrcode, FaSave, FaShoppingBag, FaTools, FaUser } from "react-icons/fa";
+import { FaArrowRight, FaBriefcase, FaCalendarAlt, FaEnvelope, FaHome, FaImages, FaLink, FaMusic, FaProjectDiagram, FaQrcode, FaSave, FaShoppingBag, FaTools, FaUser, FaUsers, FaVideo } from "react-icons/fa";
 
 /**
  * Socle UX commun a tous les profils AODI Card :
@@ -65,6 +65,8 @@ function theme(profileType: ProfileType) {
 
 const SECTION_ICONS: Partial<Record<ProfileSectionType, React.ReactNode>> = {
   MUSIC: <FaMusic className="h-5 w-5" />,
+  VIDEOS: <FaVideo className="h-5 w-5" />,
+  ARTISTS: <FaUsers className="h-5 w-5" />,
   EVENTS: <FaCalendarAlt className="h-5 w-5" />,
   PRODUCTS: <FaShoppingBag className="h-5 w-5" />,
   PROJECTS: <FaProjectDiagram className="h-5 w-5" />,
@@ -177,7 +179,7 @@ export function ProfileCard({ profile }: { profile: PublicProfile }) {
 
       <div className="mt-4 space-y-6 md:mt-6 md:space-y-8">
         <ProfileUtilityCards displayName={profile.displayName} slug={profile.slug} publicUrl={publicUrl} appointmentUrl={profile.appointmentUrl} profileType={profile.profileType} />
-        <ProfileContentSections slug={profile.slug} bio={profile.bio} products={profile.products} services={profile.services} projects={profile.projects} galleryItems={profile.galleryItems} customLinks={profile.customLinks} musicTracks={profile.musicTracks} youtubeVideos={profile.youtubeVideos} youtubeChannel={profile.youtubeChannel} events={profile.events} sections={profile.sections} profileType={profile.profileType} />
+        <ProfileContentSections slug={profile.slug} bio={profile.bio} products={profile.products} services={profile.services} projects={profile.projects} galleryItems={profile.galleryItems} customLinks={profile.customLinks} musicTracks={profile.musicTracks} youtubeVideos={profile.youtubeVideos} youtubeChannel={profile.youtubeChannel} videos={profile.videos} videoChannel={profile.videoChannel} artists={profile.artists} events={profile.events} sections={profile.sections} profileType={profile.profileType} />
         {finalCtaHref ? <section className="relative overflow-hidden bg-aodi-violet-950 px-5 py-8 text-white sm:px-9 md:py-10"><div className="absolute inset-0 public-bogolan-cover opacity-25" /><div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-center md:justify-between"><p className="font-display text-2xl font-semibold italic leading-tight text-aodi-cream md:text-3xl">{profile.tagline || heroCopy || "Votre identite, sans limites."}</p><a href={finalCtaHref} target={finalCtaHref.startsWith("http") ? "_blank" : undefined} rel={finalCtaHref.startsWith("http") ? "noopener noreferrer" : undefined} className="inline-flex items-center justify-center gap-3 rounded-full bg-aodi-gold px-6 py-4 text-sm font-extrabold text-aodi-violet-950">{finalCtaLabel} <FaArrowRight /></a></div></section> : null}
       </div>
 

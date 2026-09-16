@@ -19,6 +19,8 @@ const MODULES: ModuleDefinition[] = [
   { type: "EVENTS", label: "Evenements", description: "Dates publiques generiques.", defaultOrder: 50 },
   { type: "SERVICES", label: "Services", description: "Cartes services existantes.", defaultOrder: 60 },
   { type: "PROJECTS", label: "Projets", description: "Realisations et portfolios.", defaultOrder: 70 },
+  { type: "VIDEOS", label: "Videos", description: "Chaine YouTube du profil : dernieres videos du metier (realisations, demos, interviews...).", defaultOrder: 75 },
+  { type: "ARTISTS", label: "Artistes accompagnes", description: "Artistes suivis par un producteur, manager, label ou agence, avec leur propre chaine YouTube.", defaultOrder: 78 },
   { type: "PRODUCTS", label: "Boutique", description: "Preview de 2 a 4 produits.", defaultOrder: 80 },
   { type: "GALLERY", label: "Galerie", description: "Apercu visuel horizontal.", defaultOrder: 90 },
   { type: "CUSTOM_LINKS", label: "Liens", description: "Liens personnalises.", defaultOrder: 100 },
@@ -125,8 +127,10 @@ export default async function AdminProfileConfigPage({ params }: PageProps) {
 
   const context = await getProfileModuleContext(profile.id);
   const byType = new Map(context.sections.map((row) => [row.type, row]));
-  const recommendedModules = MODULES.filter((module) => isRecommended(module, context));
-  const otherModules = MODULES.filter((module) => !isRecommended(module, context));
+  // Une section absente de l'enum PostgreSQL (migration pas encore appliquee) n'est pas proposee.
+  const availableModules = MODULES.filter((module) => context.availableSectionTypes.has(module.type));
+  const recommendedModules = availableModules.filter((module) => isRecommended(module, context));
+  const otherModules = availableModules.filter((module) => !isRecommended(module, context));
   const experienceLabel = PROFILE_TYPE_LABELS[context.profileType];
 
   return (

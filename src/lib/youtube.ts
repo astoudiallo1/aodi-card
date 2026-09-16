@@ -92,6 +92,41 @@ function fallbackThumbnail(videoId: string) {
   return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
 }
 
+const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
+
+/**
+ * Identifiant d'une video a partir d'un lien colle par l'admin :
+ * youtube.com/watch?v=ID, youtu.be/ID, youtube.com/shorts/ID, youtube.com/embed/ID, youtube.com/live/ID.
+ */
+export function parseYouTubeVideoId(rawValue: string): string | null {
+  let value = rawValue.trim();
+  if (!value) return null;
+  if (VIDEO_ID_PATTERN.test(value)) return value;
+  if (!/^https?:\/\//i.test(value)) value = `https://${value}`;
+
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return null;
+  }
+
+  const host = url.hostname.toLowerCase();
+  const parts = url.pathname.split("/").filter(Boolean);
+  let candidate: string | null = null;
+  if (host === "youtu.be") candidate = parts[0] ?? null;
+  else if (YOUTUBE_HOSTS.has(host)) {
+    if (parts[0] === "watch") candidate = url.searchParams.get("v");
+    else if (parts[0] === "shorts" || parts[0] === "embed" || parts[0] === "live") candidate = parts[1] ?? null;
+  }
+  return candidate && VIDEO_ID_PATTERN.test(candidate) ? candidate : null;
+}
+
+/** Carte video minimale pour un lien mis en avant (pas de titre sans appel API : le vignette YouTube suffit). */
+export function youtubeVideoFromId(videoId: string): YouTubeVideo {
+  return { videoId, title: "", thumbnail: fallbackThumbnail(videoId), publishedAt: "", url: watchUrl(videoId) };
+}
+
 /**
  * Accepte : https://youtube.com/@artiste, https://www.youtube.com/@artiste/videos, @artiste,
  * https://youtube.com/channel/UC..., youtube.com/channel/UC...?param (sans protocole, slash final, espaces).

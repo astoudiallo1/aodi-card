@@ -84,6 +84,16 @@ type MusicValues = {
   sortOrder: number;
 };
 
+type ArtistValues = {
+  name: string;
+  role: string | null;
+  description: string | null;
+  photoUrl: string | null;
+  featuredVideoUrls: string[];
+  isVisible: boolean;
+  sortOrder: number;
+};
+
 type EventValues = {
   title: string;
   description: string | null;
@@ -256,6 +266,24 @@ export function MusicTrackForm({ action, submitLabel, item }: ContentFormProps<M
         <Check label="Visible" name="isVisible" defaultChecked={item?.isVisible ?? true} />
         <Check label="Mis en avant" name="isFeatured" defaultChecked={item?.isFeatured ?? false} />
       </div>
+    </FormShell>
+  );
+}
+
+export function ArtistForm({ action, submitLabel, item }: ContentFormProps<ArtistValues>) {
+  return (
+    <FormShell action={action} submitLabel={submitLabel}>
+      <Field label="Nom de l'artiste" name="name" required defaultValue={item?.name} />
+      <Field label="Role" name="role" defaultValue={item?.role} />
+      <TextArea label="Description courte" name="description" defaultValue={item?.description} />
+      <ImageField label="Photo de l'artiste" currentImageUrl={item?.photoUrl} />
+      <label className="block sm:col-span-2">
+        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-aodi-violet-700/70">Clips mis en avant (un lien YouTube par ligne, 6 max)</span>
+        <textarea name="featuredVideoUrls" defaultValue={item?.featuredVideoUrls?.join("\n") ?? ""} rows={3} placeholder={"https://www.youtube.com/watch?v=...\nhttps://youtu.be/..."} className="mt-2 w-full resize-y rounded-lg border border-aodi-violet-100 bg-white px-4 py-3 text-sm leading-relaxed text-aodi-violet-900 outline-none transition focus:border-aodi-gold focus:ring-2 focus:ring-aodi-gold/20" />
+        <span className="mt-1 block text-xs text-aodi-violet-700/60">Affiches en premier sur le profil public, avant les dernieres videos de la chaine.</span>
+      </label>
+      <Field label="Ordre d'affichage" name="sortOrder" type="number" defaultValue={item?.sortOrder ?? 0} />
+      <div className="sm:col-span-2"><Check label="Visible" name="isVisible" defaultChecked={item?.isVisible ?? true} /></div>
     </FormShell>
   );
 }

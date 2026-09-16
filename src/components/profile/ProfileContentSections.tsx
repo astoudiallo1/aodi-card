@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
-import type { ProfileSectionType, ProfileType, PublicCustomLink, PublicGalleryItem, PublicMusicTrack, PublicProduct, PublicYouTubeChannel, PublicYouTubeVideo, PublicProfileEvent, PublicProfileSection, PublicProject, PublicService } from "@/types/profile";
-import { FaApple, FaExternalLinkAlt, FaGithub, FaImages, FaMusic, FaPlay, FaStore, FaTools } from "react-icons/fa";
+import type { ProfileSectionType, ProfileType, PublicCustomLink, PublicGalleryItem, PublicManagedArtist, PublicMusicTrack, PublicProduct, PublicYouTubeChannel, PublicYouTubeVideo, PublicProfileEvent, PublicProfileSection, PublicProject, PublicService } from "@/types/profile";
+import { FaApple, FaExternalLinkAlt, FaGithub, FaImages, FaMusic, FaPlay, FaStore, FaTools, FaUser } from "react-icons/fa";
 import { FaSpotify, FaYoutube } from "react-icons/fa6";
 
 function money(value: number | null, currency = "FCFA") {
@@ -15,8 +15,22 @@ function orderHref(product: PublicProduct) {
   return `https://wa.me/${product.whatsappNumber.replace(/\D/g, "")}?text=${encodeURIComponent(text)}`;
 }
 
+// Section VIDEOS generique : le vocabulaire suit le metier, le moteur et la mise en page sont communs.
+const VIDEO_SECTION_COPY: Record<ProfileType, { title: string; eyebrow: string }> = {
+  GENERAL: { title: "Videos", eyebrow: "En video" },
+  CORPORATE: { title: "Interviews et presentations", eyebrow: "Prises de parole" },
+  ARCHITECTURE: { title: "Projets en video", eyebrow: "Visites et realisations" },
+  COMMERCE: { title: "Videos", eyebrow: "Decouvrir en video" },
+  MUSIC: { title: "Videos", eyebrow: "En video" },
+  ACTOR_CREATOR: { title: "Creations en video", eyebrow: "Sketches et contenus" },
+  TECH: { title: "Demonstrations", eyebrow: "Demos et tutoriels" },
+  CRAFT: { title: "Realisations en video", eyebrow: "Fabrication et savoir-faire" },
+};
+
 function sectionLabel(type: ProfileSectionType, profileType: ProfileType, title?: string | null) {
   if (title) return title;
+  if (type === "VIDEOS") return VIDEO_SECTION_COPY[profileType].title;
+  if (type === "ARTISTS") return "Artistes accompagnes";
   if (type === "PRODUCTS") return profileType === "COMMERCE" ? "Nos collections" : "Boutique";
   if (type === "PROJECTS") return profileType === "ARCHITECTURE" || profileType === "CRAFT" || profileType === "ACTOR_CREATOR" ? "Mes realisations" : "Projets recents";
   if (type === "MUSIC") return "Dernieres sorties";
@@ -262,6 +276,96 @@ function MusicSection({ tracks, youtubeVideos, youtubeChannel, title, profileTyp
   );
 }
 
+function formatVideoDateShort(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "short" }).format(date);
+}
+
+// Carte video du module generique : vignette 16/9, titre, date. Volontairement differente des vignettes MUSIC.
+function VideoCard({ video }: { video: PublicYouTubeVideo }) {
+  const date = video.publishedAt ? formatVideoDateShort(video.publishedAt) : null;
+  return (
+    <article className="w-[70vw] max-w-[300px] shrink-0 snap-start overflow-hidden rounded-lg border border-black/5 bg-white shadow-[0_12px_26px_rgba(24,18,10,0.08)] md:w-auto md:max-w-none">
+      <a href={video.url} target="_blank" rel="noopener noreferrer" className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-aodi-gold">
+        <div className="relative aspect-video overflow-hidden bg-aodi-violet-950">
+          <img src={video.thumbnail} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+          <span aria-hidden className="absolute bottom-2 right-2 inline-flex items-center gap-1.5 rounded-full bg-black/65 px-2.5 py-1 text-[0.65rem] font-extrabold uppercase tracking-wide text-white backdrop-blur"><FaPlay className="h-2.5 w-2.5" /> Lire</span>
+        </div>
+        <div className="p-3 md:p-4">
+          <h3 className="line-clamp-2 min-h-[2.4rem] text-[0.82rem] font-extrabold leading-snug text-aodi-violet-950 md:text-sm">{video.title || "Voir la video"}</h3>
+          <div className="mt-2 flex items-center justify-between gap-2 text-[0.68rem] font-semibold text-aodi-violet-700/65 md:text-xs">
+            {date ? <time dateTime={video.publishedAt}>{date}</time> : <span />}
+            <span className="inline-flex items-center gap-1 text-aodi-gold-dark"><FaYoutube className="h-3.5 w-3.5" /> YouTube</span>
+          </div>
+        </div>
+      </a>
+    </article>
+  );
+}
+
+/** Module VIDEOS : dernieres videos de la chaine generique du profil (tous types), carrousel compact sur mobile. */
+function VideoSection({ videos, channel, title, profileType }: { videos: PublicYouTubeVideo[]; channel: PublicYouTubeChannel | null; title?: string | null; profileType: ProfileType }) {
+  if (videos.length === 0) return null;
+  const copy = VIDEO_SECTION_COPY[profileType];
+  return (
+    <section id="videos" className="space-y-4 scroll-mt-24">
+      <div>
+        <p className="px-4 text-[0.66rem] font-bold uppercase tracking-[0.22em] text-aodi-gold-dark sm:px-7">{copy.eyebrow}</p>
+        <div className="mt-1"><SectionTitle title={sectionLabel("VIDEOS", profileType, title)} actionHref={channel?.url} actionLabel="Voir la chaine" /></div>
+      </div>
+      <div className={`${SCROLLER} md:grid-cols-3`}>
+        {videos.slice(0, 6).map((video) => <VideoCard key={video.videoId} video={video} />)}
+      </div>
+      {channel ? <YouTubeChannelLink channel={channel} label="Voir toute la chaine" /> : null}
+    </section>
+  );
+}
+
+function artistInitials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join("") || "?";
+}
+
+// Fiche artiste compacte : identite, role, description courte, puis 3 vignettes (clips mis en avant, puis dernieres videos).
+function ArtistCard({ artist }: { artist: PublicManagedArtist }) {
+  return (
+    <article className="overflow-hidden rounded-lg border border-black/5 bg-white p-3 shadow-[0_12px_26px_rgba(24,18,10,0.08)] md:p-4">
+      <div className="flex items-start gap-3">
+        {artist.photoUrl ? <img src={artist.photoUrl} alt={artist.name} loading="lazy" className="h-14 w-14 shrink-0 rounded-lg object-cover md:h-16 md:w-16" /> : <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-aodi-violet-950 font-display text-xl font-bold text-aodi-gold md:h-16 md:w-16"><span aria-hidden>{artistInitials(artist.name)}</span><FaUser className="sr-only" /></span>}
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-base font-extrabold leading-tight text-aodi-violet-950 md:text-lg">{artist.name}</h3>
+          {artist.role ? <p className="mt-0.5 truncate text-xs font-bold uppercase tracking-[0.14em] text-aodi-gold-dark">{artist.role}</p> : null}
+          {artist.description ? <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-aodi-violet-950/75 md:text-sm">{artist.description}</p> : null}
+        </div>
+      </div>
+      {artist.videos.length > 0 ? (
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          {artist.videos.slice(0, 3).map((video) => (
+            <a key={video.videoId} href={video.url} target="_blank" rel="noopener noreferrer" aria-label={video.title || "Voir la video"} className="group relative aspect-video overflow-hidden rounded-md bg-aodi-violet-950">
+              <img src={video.thumbnail} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+              <span aria-hidden className="absolute inset-0 flex items-center justify-center bg-black/10"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-aodi-violet-950 shadow"><FaPlay className="ml-0.5 h-2.5 w-2.5" /></span></span>
+            </a>
+          ))}
+        </div>
+      ) : null}
+      {artist.channel ? <a href={artist.channel.url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-xs font-extrabold text-aodi-violet-950 hover:text-aodi-gold-dark"><FaYoutube className="h-3.5 w-3.5 text-[#FF0000]" /> {artist.channel.title ? `Chaine ${artist.channel.title}` : "Voir la chaine"}</a> : null}
+    </article>
+  );
+}
+
+/** Module ARTISTS : artistes accompagnes par un producteur, manager ou label. Suit le theme du profil principal. */
+function ArtistsSection({ artists, title, profileType }: { artists: PublicManagedArtist[]; title?: string | null; profileType: ProfileType }) {
+  if (artists.length === 0) return null;
+  return (
+    <section id="artistes" className="space-y-4 scroll-mt-24">
+      <SectionTitle title={sectionLabel("ARTISTS", profileType, title)} />
+      <div className="grid gap-3 px-4 sm:px-7 md:grid-cols-2 md:gap-4">
+        {artists.map((artist) => <ArtistCard key={artist.id} artist={artist} />)}
+      </div>
+    </section>
+  );
+}
+
 function EventSection({ events, title, profileType }: { events: PublicProfileEvent[]; title?: string | null; profileType: ProfileType }) {
   if (events.length === 0) return null;
   return (
@@ -292,7 +396,7 @@ function AboutSection({ bio, title }: { bio: string | null; title?: string | nul
   return <section id="apropos" className="px-4 scroll-mt-24 sm:px-7"><div className="rounded-lg bg-white p-4 shadow-[0_12px_26px_rgba(24,18,10,0.08)] md:p-5"><h2 className="font-display text-[1.75rem] font-bold text-aodi-violet-950 md:text-3xl">{title || "A propos"}</h2><span className="mt-3 block h-0.5 w-16 bg-aodi-gold" /><p className="mt-4 whitespace-pre-line text-[0.95rem] leading-relaxed text-aodi-violet-950/80 md:mt-5 md:text-base">{bio}</p></div></section>;
 }
 
-export function ProfileContentSections({ slug, bio, products, services, projects, galleryItems, customLinks, musicTracks, youtubeVideos, youtubeChannel, events, sections, profileType }: { slug: string; bio: string | null; products: PublicProduct[]; services: PublicService[]; projects: PublicProject[]; galleryItems: PublicGalleryItem[]; customLinks: PublicCustomLink[]; musicTracks: PublicMusicTrack[]; youtubeVideos: PublicYouTubeVideo[]; youtubeChannel: PublicYouTubeChannel | null; events: PublicProfileEvent[]; sections: PublicProfileSection[]; profileType: ProfileType }) {
+export function ProfileContentSections({ slug, bio, products, services, projects, galleryItems, customLinks, musicTracks, youtubeVideos, youtubeChannel, videos, videoChannel, artists, events, sections, profileType }: { slug: string; bio: string | null; products: PublicProduct[]; services: PublicService[]; projects: PublicProject[]; galleryItems: PublicGalleryItem[]; customLinks: PublicCustomLink[]; musicTracks: PublicMusicTrack[]; youtubeVideos: PublicYouTubeVideo[]; youtubeChannel: PublicYouTubeChannel | null; videos: PublicYouTubeVideo[]; videoChannel: PublicYouTubeChannel | null; artists: PublicManagedArtist[]; events: PublicProfileEvent[]; sections: PublicProfileSection[]; profileType: ProfileType }) {
   const renderers: Record<ProfileSectionType, (section: PublicProfileSection) => React.ReactNode> = {
     SOCIALS: () => null,
     CONTACT: () => null,
@@ -303,6 +407,8 @@ export function ProfileContentSections({ slug, bio, products, services, projects
     GALLERY: (section) => <GallerySection items={galleryItems} title={section.title} profileType={profileType} />,
     CUSTOM_LINKS: (section) => <LinkSection links={customLinks} title={section.title} profileType={profileType} />,
     MUSIC: (section) => <MusicSection tracks={musicTracks} youtubeVideos={youtubeVideos} youtubeChannel={youtubeChannel} title={section.title} profileType={profileType} />,
+    VIDEOS: (section) => <VideoSection videos={videos} channel={videoChannel} title={section.title} profileType={profileType} />,
+    ARTISTS: (section) => <ArtistsSection artists={artists} title={section.title} profileType={profileType} />,
     EVENTS: (section) => <EventSection events={events} title={section.title} profileType={profileType} />,
     STATS: () => null,
     ABOUT: (section) => <AboutSection bio={bio} title={section.title} />,

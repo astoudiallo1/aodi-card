@@ -64,6 +64,7 @@ model Profile {
   stats        ProfileStat[]
   musicTracks  MusicTrack[]
   events       ProfileEvent[]
+  managedArtists ManagedArtist[]
 }
 
 
@@ -80,6 +81,8 @@ enum ProfileSectionType {
   STATS
   ABOUT
   CTA
+  VIDEOS
+  ARTISTS
 }
 
 model ProfileSection {
@@ -139,6 +142,32 @@ model MusicTrack {
   @@index([profileId])
   @@index([isVisible])
   @@index([isFeatured])
+  @@index([sortOrder])
+}
+
+/// Artiste accompagne par un profil (producteur, manager, label...). Sa chaine YouTube utilise
+/// le meme moteur que les sections de profil (memes cinq champs que YouTubeChannelConfig).
+model ManagedArtist {
+  id                       String   @id @default(cuid())
+  profileId                String
+  name                     String
+  role                     String?
+  description              String?
+  photoUrl                 String?
+  youtubeChannelUrl        String?
+  youtubeChannelId         String?
+  youtubeChannelTitle      String?
+  youtubeChannelHandle     String?
+  youtubeUploadsPlaylistId String?
+  featuredVideoUrls        String[] @default([])
+  isVisible                Boolean  @default(true)
+  sortOrder                Int      @default(0)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  profile                  Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@index([isVisible])
   @@index([sortOrder])
 }
 

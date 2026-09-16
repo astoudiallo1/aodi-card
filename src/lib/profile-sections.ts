@@ -10,6 +10,8 @@ type NavEntry = { href: string; label: string; byType?: Partial<Record<ProfileTy
 
 const SECTION_NAV: Partial<Record<ProfileSectionType, NavEntry>> = {
   MUSIC: { href: "#musique", label: "Musique" },
+  VIDEOS: { href: "#videos", label: "Videos", byType: { TECH: "Demos", ACTOR_CREATOR: "Creations" } },
+  ARTISTS: { href: "#artistes", label: "Artistes" },
   EVENTS: { href: "#evenements", label: "Actualites", byType: { MUSIC: "Events", ACTOR_CREATOR: "Events", COMMERCE: "Promotions" } },
   SERVICES: { href: "#services", label: "Services" },
   PROJECTS: { href: "#projets", label: "Projets", byType: { ARCHITECTURE: "Realisations", CRAFT: "Realisations", ACTOR_CREATOR: "Realisations" } },

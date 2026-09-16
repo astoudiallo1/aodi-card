@@ -1,11 +1,13 @@
+import { hasManagedArtistChannel, managedArtistChannelConfig, type ManagedArtistChannelColumns } from "@/lib/managed-artists";
 import { prisma } from "@/lib/prisma";
-import { getYouTubeFeed, readYouTubeChannelConfig } from "@/lib/youtube";
+import { getYouTubeFeed, parseYouTubeVideoId, readYouTubeChannelConfig, youtubeVideoFromId } from "@/lib/youtube";
 import type {
   ProfileLookup,
   ProfileSectionType,
   ProfileType,
   PublicCustomLink,
   PublicGalleryItem,
+  PublicManagedArtist,
   PublicMusicTrack,
   PublicProduct,
   PublicYouTubeChannel,
@@ -61,18 +63,24 @@ type ProfileModules = {
   musicTracks: PublicMusicTrack[];
   youtubeVideos: PublicYouTubeVideo[];
   youtubeChannel: PublicYouTubeChannel | null;
+  videos: PublicYouTubeVideo[];
+  videoChannel: PublicYouTubeChannel | null;
+  artists: PublicManagedArtist[];
   events: PublicProfileEvent[];
   sections: PublicProfileSection[];
 };
 
 const PROFILE_TYPES: ProfileType[] = ["GENERAL", "CORPORATE", "ARCHITECTURE", "COMMERCE", "MUSIC", "ACTOR_CREATOR", "TECH", "CRAFT"];
 
+// VIDEOS (chaine generique) suit les realisations/projets ; ARTISTS (artistes accompagnes) vient juste apres.
 const DEFAULT_SECTION_ORDER: ProfileSectionType[] = [
   "SOCIALS",
   "CONTACT",
   "STATS",
   "SERVICES",
   "PROJECTS",
+  "VIDEOS",
+  "ARTISTS",
   "PRODUCTS",
   "MUSIC",
   "EVENTS",
@@ -83,13 +91,13 @@ const DEFAULT_SECTION_ORDER: ProfileSectionType[] = [
 
 const PROFILE_TYPE_SECTION_ORDER: Record<ProfileType, ProfileSectionType[]> = {
   GENERAL: DEFAULT_SECTION_ORDER,
-  CORPORATE: ["SOCIALS", "CONTACT", "STATS", "SERVICES", "PROJECTS", "GALLERY", "EVENTS", "CUSTOM_LINKS", "ABOUT", "PRODUCTS", "MUSIC"],
-  ARCHITECTURE: ["SOCIALS", "CONTACT", "STATS", "SERVICES", "PROJECTS", "GALLERY", "EVENTS", "CUSTOM_LINKS", "ABOUT", "PRODUCTS", "MUSIC"],
-  COMMERCE: ["SOCIALS", "CONTACT", "STATS", "PRODUCTS", "GALLERY", "SERVICES", "PROJECTS", "CUSTOM_LINKS", "ABOUT", "EVENTS", "MUSIC"],
-  MUSIC: ["SOCIALS", "CONTACT", "STATS", "MUSIC", "EVENTS", "GALLERY", "PRODUCTS", "CUSTOM_LINKS", "ABOUT", "PROJECTS", "SERVICES"],
-  ACTOR_CREATOR: ["SOCIALS", "CONTACT", "STATS", "PROJECTS", "EVENTS", "GALLERY", "CUSTOM_LINKS", "ABOUT", "SERVICES", "PRODUCTS", "MUSIC"],
-  TECH: ["SOCIALS", "CONTACT", "STATS", "SERVICES", "PROJECTS", "CUSTOM_LINKS", "GALLERY", "ABOUT", "PRODUCTS", "EVENTS", "MUSIC"],
-  CRAFT: ["SOCIALS", "CONTACT", "STATS", "SERVICES", "PROJECTS", "GALLERY", "PRODUCTS", "CUSTOM_LINKS", "ABOUT", "EVENTS", "MUSIC"],
+  CORPORATE: ["SOCIALS", "CONTACT", "STATS", "SERVICES", "PROJECTS", "VIDEOS", "ARTISTS", "GALLERY", "EVENTS", "CUSTOM_LINKS", "ABOUT", "PRODUCTS", "MUSIC"],
+  ARCHITECTURE: ["SOCIALS", "CONTACT", "STATS", "SERVICES", "PROJECTS", "VIDEOS", "ARTISTS", "GALLERY", "EVENTS", "CUSTOM_LINKS", "ABOUT", "PRODUCTS", "MUSIC"],
+  COMMERCE: ["SOCIALS", "CONTACT", "STATS", "PRODUCTS", "GALLERY", "VIDEOS", "SERVICES", "PROJECTS", "ARTISTS", "CUSTOM_LINKS", "ABOUT", "EVENTS", "MUSIC"],
+  MUSIC: ["SOCIALS", "CONTACT", "STATS", "MUSIC", "VIDEOS", "ARTISTS", "EVENTS", "GALLERY", "PRODUCTS", "CUSTOM_LINKS", "ABOUT", "PROJECTS", "SERVICES"],
+  ACTOR_CREATOR: ["SOCIALS", "CONTACT", "STATS", "PROJECTS", "VIDEOS", "ARTISTS", "EVENTS", "GALLERY", "CUSTOM_LINKS", "ABOUT", "SERVICES", "PRODUCTS", "MUSIC"],
+  TECH: ["SOCIALS", "CONTACT", "STATS", "SERVICES", "PROJECTS", "VIDEOS", "ARTISTS", "CUSTOM_LINKS", "GALLERY", "ABOUT", "PRODUCTS", "EVENTS", "MUSIC"],
+  CRAFT: ["SOCIALS", "CONTACT", "STATS", "SERVICES", "PROJECTS", "VIDEOS", "ARTISTS", "GALLERY", "PRODUCTS", "CUSTOM_LINKS", "ABOUT", "EVENTS", "MUSIC"],
 };
 
 async function getTableColumns(tableName: string) {
@@ -249,6 +257,73 @@ async function getYouTubeModule(profileType: ProfileType, configuredSections: Pu
   };
 }
 
+// Section VIDEOS : chaine YouTube generique du profil, quel que soit le type d'experience (meme moteur que MUSIC).
+async function getVideosModule(configuredSections: PublicProfileSection[]): Promise<Pick<ProfileModules, "videos" | "videoChannel">> {
+  const videoSection = configuredSections.find((section) => section.type === "VIDEOS" && section.enabled);
+  const config = readYouTubeChannelConfig(videoSection?.config ?? null);
+  if (!config.youtubeChannelUrl) return { videos: [], videoChannel: null };
+
+  const feed = await getYouTubeFeed(config);
+  return {
+    videos: feed?.videos ?? [],
+    videoChannel: {
+      url: feed?.channel.url ?? config.youtubeChannelUrl,
+      title: feed?.channel.title ?? config.youtubeChannelTitle,
+      handle: feed?.channel.handle ?? config.youtubeHandle,
+    },
+  };
+}
+
+type ArtistRow = ManagedArtistChannelColumns & {
+  id: string;
+  name: string;
+  role: string | null;
+  description: string | null;
+  photoUrl: string | null;
+  featuredVideoUrls: string[] | null;
+};
+
+const ARTIST_LIMIT = 8;
+const ARTIST_VIDEO_LIMIT = 4;
+
+// Artistes accompagnes : chaque artiste porte sa propre chaine, lue par le meme moteur YouTube (cache par chaine).
+// Les clips mis en avant passent en premier, puis les dernieres videos de la chaine, sans doublon.
+async function getArtists(profileId: string): Promise<PublicManagedArtist[]> {
+  if (!(await tableExists("ManagedArtist"))) return [];
+  const rows = await prisma.$queryRaw<ArtistRow[]>`
+    SELECT "id", "name", "role", "description", "photoUrl", "youtubeChannelUrl", "youtubeChannelId", "youtubeChannelTitle", "youtubeChannelHandle", "youtubeUploadsPlaylistId", "featuredVideoUrls"
+    FROM "ManagedArtist"
+    WHERE "profileId" = ${profileId} AND "isVisible" = true
+    ORDER BY "sortOrder" ASC, "createdAt" ASC
+    LIMIT ${ARTIST_LIMIT}
+  `;
+
+  return Promise.all(
+    rows.map(async (row) => {
+      const config = managedArtistChannelConfig(row);
+      const feed = hasManagedArtistChannel(row) ? await getYouTubeFeed(config) : null;
+      const featured = (row.featuredVideoUrls ?? []).map(parseYouTubeVideoId).filter((videoId): videoId is string => Boolean(videoId)).map(youtubeVideoFromId);
+      const seen = new Set<string>();
+      const videos: PublicYouTubeVideo[] = [];
+      for (const video of [...featured, ...(feed?.videos ?? [])]) {
+        if (seen.has(video.videoId)) continue;
+        seen.add(video.videoId);
+        videos.push(video);
+        if (videos.length >= ARTIST_VIDEO_LIMIT) break;
+      }
+      return {
+        id: row.id,
+        name: row.name,
+        role: row.role,
+        description: row.description,
+        photoUrl: row.photoUrl,
+        channel: config.youtubeChannelUrl ? { url: feed?.channel.url ?? config.youtubeChannelUrl, title: feed?.channel.title ?? config.youtubeChannelTitle, handle: feed?.channel.handle ?? config.youtubeHandle } : null,
+        videos,
+      };
+    }),
+  );
+}
+
 function normalizeProfileType(value: string | null): ProfileType {
   return PROFILE_TYPES.includes(value as ProfileType) ? (value as ProfileType) : "GENERAL";
 }
@@ -279,6 +354,10 @@ function sectionHasContent(type: ProfileSectionType, profile: ProfileRow, module
       return modules.customLinks.length > 0;
     case "MUSIC":
       return modules.musicTracks.length > 0 || modules.youtubeVideos.length > 0;
+    case "VIDEOS":
+      return modules.videos.length > 0;
+    case "ARTISTS":
+      return modules.artists.length > 0;
     case "EVENTS":
       return modules.events.length > 0;
     case "STATS":
@@ -361,6 +440,9 @@ function toPublicProfile(profile: ProfileRow, modules: ProfileModules): PublicPr
     musicTracks: modules.musicTracks,
     youtubeVideos: modules.youtubeVideos,
     youtubeChannel: modules.youtubeChannel,
+    videos: modules.videos,
+    videoChannel: modules.videoChannel,
+    artists: modules.artists,
     events: modules.events,
   };
 }
@@ -372,7 +454,7 @@ export async function lookupProfileBySlug(slug: string): Promise<ProfileLookup> 
   if (!profile) return { status: "missing" };
   if (!profile.isActive) return { status: "inactive" };
 
-  const [products, services, projects, galleryItems, customLinks, stats, musicTracks, events, configuredSections] = await Promise.all([
+  const [products, services, projects, galleryItems, customLinks, stats, musicTracks, events, configuredSections, artists] = await Promise.all([
     getProducts(profile.id),
     getServices(profile.id),
     getProjects(profile.id),
@@ -382,10 +464,14 @@ export async function lookupProfileBySlug(slug: string): Promise<ProfileLookup> 
     getMusicTracks(profile.id),
     getEvents(profile.id),
     getConfiguredSections(profile.id),
+    getArtists(profile.id),
   ]);
 
-  const { youtubeVideos, youtubeChannel } = await getYouTubeModule(normalizeProfileType(profile.profileType), configuredSections);
-  const moduleData = { products, services, projects, galleryItems, customLinks, stats, musicTracks, youtubeVideos, youtubeChannel, events };
+  const [{ youtubeVideos, youtubeChannel }, { videos, videoChannel }] = await Promise.all([
+    getYouTubeModule(normalizeProfileType(profile.profileType), configuredSections),
+    getVideosModule(configuredSections),
+  ]);
+  const moduleData = { products, services, projects, galleryItems, customLinks, stats, musicTracks, youtubeVideos, youtubeChannel, videos, videoChannel, artists, events };
   const sections = buildSections(profile, moduleData, configuredSections);
 
   return { status: "found", profile: toPublicProfile(profile, { ...moduleData, sections }) };

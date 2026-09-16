@@ -25,6 +25,7 @@ export const IMAGE_PRESETS: Record<MediaFolder, { maxDimension: number }> = {
   services: { maxDimension: 2000 },
   products: { maxDimension: 1600 },
   music: { maxDimension: 1500 },
+  artists: { maxDimension: 1200 },
 };
 
 const ORIGINAL_FORMATS = {
