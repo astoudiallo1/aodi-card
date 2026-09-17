@@ -232,9 +232,11 @@ export async function createProductAction(profileId: string, formData: FormData)
       imageUrl: image.value ?? null,
       whatsappNumber: cleanWhatsApp(formData, "whatsappNumber"),
       orderUrl: optionalUrl(formData, "orderUrl", "L'URL de commande"),
-      isVisible: checkbox(formData, "isVisible", true),
+      // Le formulaire affiche toujours ces cases : une case decochee est absente du FormData et vaut donc false,
+      // a la creation comme a la modification (un defaut a true ecraserait le choix de l'admin).
+      isVisible: checkbox(formData, "isVisible"),
       isFeatured: checkbox(formData, "isFeatured"),
-      isAvailable: checkbox(formData, "isAvailable", true),
+      isAvailable: checkbox(formData, "isAvailable"),
       displayOrder: integer(formData, "displayOrder"),
     },
   }));

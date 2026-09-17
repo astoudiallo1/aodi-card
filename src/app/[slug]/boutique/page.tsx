@@ -1,42 +1,17 @@
 /* eslint-disable @next/next/no-img-element */
 import { InactiveProfile } from "@/components/profile/InactiveProfile";
 import { prisma } from "@/lib/prisma";
+import { formatProductPrice as money, productOrderHref } from "@/lib/product-order";
 import { notFound } from "next/navigation";
 import { FaArrowLeft, FaStore } from "react-icons/fa";
 
 type PageProps = { params: Promise<{ slug: string }> };
 
-type ProductCard = {
-  id: string;
-  name: string;
-  description: string | null;
-  price: number;
-  oldPrice: number | null;
-  currency: string;
-  imageUrl: string | null;
-  whatsappNumber: string | null;
-  orderUrl: string | null;
-  isFeatured: boolean;
-  isAvailable: boolean;
-};
-
-function money(value: number | null, currency = "FCFA") {
-  if (value === null) return null;
-  return `${new Intl.NumberFormat("fr-FR").format(value)} ${currency}`;
-}
-
-function orderHref(product: ProductCard) {
-  if (product.orderUrl) return product.orderUrl;
-  if (!product.whatsappNumber) return null;
-  const text = `Bonjour, je souhaite commander :\n${product.name}\nPrix : ${money(product.price, product.currency)}`;
-  return `https://wa.me/${product.whatsappNumber.replace(/\D/g, "")}?text=${encodeURIComponent(text)}`;
-}
-
 export default async function PublicShopPage({ params }: PageProps) {
   const { slug } = await params;
   const profile = await prisma.profile.findUnique({
     where: { slug: slug.trim().toLowerCase() },
-    select: { id: true, displayName: true, slug: true, isActive: true },
+    select: { id: true, displayName: true, slug: true, isActive: true, whatsapp: true },
   });
 
   if (!profile) notFound();
@@ -59,7 +34,8 @@ export default async function PublicShopPage({ params }: PageProps) {
         {products.length > 0 ? (
           <section className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {products.map((product) => {
-              const href = product.isAvailable ? orderHref(product) : null;
+              // Meme regle que le profil : lien du produit, sinon WhatsApp du profil ; jamais de lien si indisponible.
+              const href = productOrderHref(product, profile.whatsapp);
               return (
                 <article key={product.id} className="overflow-hidden rounded-[1.25rem] border border-aodi-violet-100 bg-white shadow-[0_12px_26px_rgba(42,15,61,0.10)]">
                   {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="h-56 w-full object-cover" /> : <div className="flex h-48 items-center justify-center bg-aodi-violet-950/10 text-aodi-violet-900/40"><FaStore className="h-10 w-10" /></div>}

@@ -2,18 +2,7 @@
 import type { ProfileSectionType, ProfileType, PublicCustomLink, PublicGalleryItem, PublicManagedArtist, PublicMusicTrack, PublicProduct, PublicYouTubeChannel, PublicYouTubeVideo, PublicProfileEvent, PublicProfileSection, PublicProject, PublicService } from "@/types/profile";
 import { FaApple, FaExternalLinkAlt, FaGithub, FaImages, FaMusic, FaPlay, FaStore, FaTools, FaUser } from "react-icons/fa";
 import { FaSpotify, FaYoutube } from "react-icons/fa6";
-
-function money(value: number | null, currency = "FCFA") {
-  if (value === null) return null;
-  return `${new Intl.NumberFormat("fr-FR").format(value)} ${currency}`;
-}
-
-function orderHref(product: PublicProduct) {
-  if (product.orderUrl) return product.orderUrl;
-  if (!product.whatsappNumber) return null;
-  const text = `Bonjour, je souhaite commander :\n${product.name}\nPrix : ${money(product.price, product.currency)}`;
-  return `https://wa.me/${product.whatsappNumber.replace(/\D/g, "")}?text=${encodeURIComponent(text)}`;
-}
+import { formatProductPrice as money, productOrderHref } from "@/lib/product-order";
 
 // Section VIDEOS generique : le vocabulaire suit le metier, le moteur et la mise en page sont communs.
 const VIDEO_SECTION_COPY: Record<ProfileType, { title: string; eyebrow: string }> = {
@@ -68,14 +57,22 @@ function ProductImage({ product }: { product: PublicProduct }) {
   return <div className="flex aspect-[4/3] items-center justify-center bg-[#F5EAD8] text-aodi-violet-900/45 md:aspect-auto md:h-44"><FaStore className="h-9 w-9" /></div>;
 }
 
-function ProductSection({ products, title, slug, profileType }: { products: PublicProduct[]; title?: string | null; slug: string; profileType: ProfileType }) {
+// Le badge "Indisponible" ne depend que de `isAvailable`. Un produit disponible sans lien de commande
+// (ni URL, ni WhatsApp produit, ni WhatsApp profil) reste affiche "Disponible", jamais "Indisponible".
+function ProductAction({ product, href }: { product: PublicProduct; href: string | null }) {
+  if (href) return <a href={href} target="_blank" rel="noopener noreferrer" className="mt-auto inline-flex w-full items-center justify-center rounded-lg bg-aodi-violet-950 px-3 py-2.5 text-[0.7rem] font-extrabold text-white md:mt-4 md:px-4 md:py-3 md:text-xs">Commander</a>;
+  if (!product.isAvailable) return <p className="mt-auto rounded-lg bg-aodi-violet-100 px-3 py-2.5 text-center text-[0.7rem] font-bold text-aodi-violet-700 md:mt-4 md:px-4 md:py-3 md:text-xs">Indisponible</p>;
+  return <p className="mt-auto rounded-lg bg-emerald-50 px-3 py-2.5 text-center text-[0.7rem] font-bold text-emerald-700 md:mt-4 md:px-4 md:py-3 md:text-xs">Disponible</p>;
+}
+
+function ProductSection({ products, title, slug, profileType, whatsapp }: { products: PublicProduct[]; title?: string | null; slug: string; profileType: ProfileType; whatsapp: string | null }) {
   if (products.length === 0) return null;
   return (
     <section id="boutique" className="space-y-4 scroll-mt-24">
       <SectionTitle title={sectionLabel("PRODUCTS", profileType, title)} actionHref={`/${slug}/boutique`} actionLabel="Voir toute la boutique" />
       <div className={`${COMPACT_GRID} md:grid-cols-3 lg:grid-cols-4`}>
         {products.slice(0, 4).map((product) => {
-          const href = product.isAvailable ? orderHref(product) : null;
+          const href = productOrderHref(product, whatsapp);
           return (
             <article key={product.id} className="flex flex-col overflow-hidden rounded-lg border border-black/5 bg-white shadow-[0_14px_30px_rgba(24,18,10,0.09)]">
               <ProductImage product={product} />
@@ -86,7 +83,7 @@ function ProductSection({ products, title, slug, profileType }: { products: Publ
                   {product.oldPrice ? <span className="text-[0.68rem] font-semibold text-aodi-violet-700/45 line-through md:text-xs">{money(product.oldPrice, product.currency)}</span> : null}
                   <span className="text-sm font-black text-aodi-gold-dark md:text-lg">{money(product.price, product.currency)}</span>
                 </div>
-                {href ? <a href={href} target="_blank" rel="noopener noreferrer" className="mt-auto inline-flex w-full items-center justify-center rounded-lg bg-aodi-violet-950 px-3 py-2.5 text-[0.7rem] font-extrabold text-white md:mt-4 md:px-4 md:py-3 md:text-xs">Commander</a> : <p className="mt-auto rounded-lg bg-aodi-violet-100 px-3 py-2.5 text-center text-[0.7rem] font-bold text-aodi-violet-700 md:mt-4 md:px-4 md:py-3 md:text-xs">Indisponible</p>}
+                <ProductAction product={product} href={href} />
               </div>
             </article>
           );
@@ -396,12 +393,12 @@ function AboutSection({ bio, title }: { bio: string | null; title?: string | nul
   return <section id="apropos" className="px-4 scroll-mt-24 sm:px-7"><div className="rounded-lg bg-white p-4 shadow-[0_12px_26px_rgba(24,18,10,0.08)] md:p-5"><h2 className="font-display text-[1.75rem] font-bold text-aodi-violet-950 md:text-3xl">{title || "A propos"}</h2><span className="mt-3 block h-0.5 w-16 bg-aodi-gold" /><p className="mt-4 whitespace-pre-line text-[0.95rem] leading-relaxed text-aodi-violet-950/80 md:mt-5 md:text-base">{bio}</p></div></section>;
 }
 
-export function ProfileContentSections({ slug, bio, products, services, projects, galleryItems, customLinks, musicTracks, youtubeVideos, youtubeChannel, videos, videoChannel, artists, events, sections, profileType }: { slug: string; bio: string | null; products: PublicProduct[]; services: PublicService[]; projects: PublicProject[]; galleryItems: PublicGalleryItem[]; customLinks: PublicCustomLink[]; musicTracks: PublicMusicTrack[]; youtubeVideos: PublicYouTubeVideo[]; youtubeChannel: PublicYouTubeChannel | null; videos: PublicYouTubeVideo[]; videoChannel: PublicYouTubeChannel | null; artists: PublicManagedArtist[]; events: PublicProfileEvent[]; sections: PublicProfileSection[]; profileType: ProfileType }) {
+export function ProfileContentSections({ slug, bio, whatsapp, products, services, projects, galleryItems, customLinks, musicTracks, youtubeVideos, youtubeChannel, videos, videoChannel, artists, events, sections, profileType }: { slug: string; bio: string | null; whatsapp: string | null; products: PublicProduct[]; services: PublicService[]; projects: PublicProject[]; galleryItems: PublicGalleryItem[]; customLinks: PublicCustomLink[]; musicTracks: PublicMusicTrack[]; youtubeVideos: PublicYouTubeVideo[]; youtubeChannel: PublicYouTubeChannel | null; videos: PublicYouTubeVideo[]; videoChannel: PublicYouTubeChannel | null; artists: PublicManagedArtist[]; events: PublicProfileEvent[]; sections: PublicProfileSection[]; profileType: ProfileType }) {
   const renderers: Record<ProfileSectionType, (section: PublicProfileSection) => React.ReactNode> = {
     SOCIALS: () => null,
     CONTACT: () => null,
     CTA: () => null,
-    PRODUCTS: (section) => <ProductSection products={products} title={section.title} slug={slug} profileType={profileType} />,
+    PRODUCTS: (section) => <ProductSection products={products} title={section.title} slug={slug} profileType={profileType} whatsapp={whatsapp} />,
     SERVICES: (section) => <ServiceSection services={services} title={section.title} profileType={profileType} />,
     PROJECTS: (section) => <ProjectSection projects={projects} title={section.title} profileType={profileType} />,
     GALLERY: (section) => <GallerySection items={galleryItems} title={section.title} profileType={profileType} />,
